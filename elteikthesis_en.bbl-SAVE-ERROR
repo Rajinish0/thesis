@@ -1,0 +1,79 @@
+% $ biblatex auxiliary file $
+% $ biblatex bbl format version 3.2 $
+% Do not modify the above lines!
+%
+% This is an auxiliary file used by the 'biblatex' package.
+% This file may safely be deleted. It will be recreated by
+% biber as required.
+%
+\begingroup
+\makeatletter
+\@ifundefined{ver@biblatex.sty}
+  {\@latex@error
+     {Missing 'biblatex' package}
+     {The bibliography requires the 'biblatex' package.}
+      \aftergroup\endinput}
+  {}
+\endgroup
+
+
+\refsection{0}
+  \datalist[entry]{none/global//global/global}
+    \entry{sebestianlague2019}{online}{}
+      \name{author}{1}{}{%
+        {{hash=4048e6d7947eee2940d5277c9b33cac3}{%
+           family={Lague},
+           familyi={L\bibinitperiod},
+           given={Sebestian},
+           giveni={S\bibinitperiod}}}%
+      }
+      \strng{namehash}{4048e6d7947eee2940d5277c9b33cac3}
+      \strng{fullhash}{4048e6d7947eee2940d5277c9b33cac3}
+      \strng{bibnamehash}{4048e6d7947eee2940d5277c9b33cac3}
+      \strng{authorbibnamehash}{4048e6d7947eee2940d5277c9b33cac3}
+      \strng{authornamehash}{4048e6d7947eee2940d5277c9b33cac3}
+      \strng{authorfullhash}{4048e6d7947eee2940d5277c9b33cac3}
+      \field{sortinit}{1}
+      \field{sortinithash}{4f6aaa89bab872aa0999fec09ff8e98a}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{Coding Adventure: Clouds}
+      \field{year}{2019}
+      \verb{urlraw}
+      \verb https://youtu.be/4QOcCGI6xOU
+      \endverb
+      \verb{url}
+      \verb https://youtu.be/4QOcCGI6xOU
+      \endverb
+    \endentry
+    \entry{shadertoy2013}{online}{}
+      \name{author}{1}{}{%
+        {{hash=00f9bcdad45f435417911d040feff60a}{%
+           family={Quilez},
+           familyi={Q\bibinitperiod},
+           given={Inigo},
+           giveni={I\bibinitperiod}}}%
+      }
+      \strng{namehash}{00f9bcdad45f435417911d040feff60a}
+      \strng{fullhash}{00f9bcdad45f435417911d040feff60a}
+      \strng{bibnamehash}{00f9bcdad45f435417911d040feff60a}
+      \strng{authorbibnamehash}{00f9bcdad45f435417911d040feff60a}
+      \strng{authornamehash}{00f9bcdad45f435417911d040feff60a}
+      \strng{authorfullhash}{00f9bcdad45f435417911d040feff60a}
+      \field{sortinit}{2}
+      \field{sortinithash}{8b555b3791beccb63322c22f3320aa9a}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{clouds}
+      \field{year}{2013}
+      \verb{urlraw}
+      \verb https://www.shadertoy.com/view/XslGRr
+      \endverb
+      \verb{url}
+      \verb https://www.shadertoy.com/view/XslGRr
+      \endverb
+    \endentry
+  \enddatalist
+\endrefsection
+\endinput
+

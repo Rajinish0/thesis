@@ -1,204 +1,201 @@
 \chapter{User documentation}
 \label{ch:user}
 
-Lorem ipsum dolor sit amet $\mathbb{N}$\nomenclature{$\mathbb{N}$}{Set of natural numbers}, consectetur adipiscing elit. Duis nibh leo, dapibus in elementum nec, aliquet id sem. Suspendisse potenti. Nullam sit amet consectetur nibh. Donec scelerisque varius turpis at tincidunt. Cras a diam in mauris viverra vehicula. Vivamus mi odio, fermentum vel arcu efficitur, lacinia viverra nibh. Aliquam aliquam ante mi, vel pretium arcu dapibus eu. Nulla finibus ante vel arcu tincidunt, ut consectetur ligula finibus. Mauris mollis lectus sed ipsum bibendum, ac ultrices erat dictum. Suspendisse faucibus euismod lacinia $\mathbb{Z}$\nomenclature{$\mathbb{Z}$}{Set of integer numbers}.
+To ensure that the program runs as smoothly as I have tested on my machine the recommended hardware is at least a 3050TI Nvidia Graphics card (with min 4GB ram), and at least 8GB of RAM. The game is shipped as a zip file exclusively for windows so all the required files are inside of it and can be played just by running the executable. For other OS, it must be built using the source files.
 
 
-\section{Enumerations and lists}
+\section{The goal of the game}
 
-Etiam vel odio ante. Etiam pulvinar nibh quis massa auctor congue. Pellentesque quis odio vitae sapien molestie vestibulum sit amet et quam. Pellentesque vel dui eget enim hendrerit finibus at sit amet libero. Quisque sollicitudin ultrices enim, nec porta magna imperdiet vitae. Cras condimentum nunc dui, eget molestie nunc accumsan vel.
+This project serves mainly as a demonstration of the implementation so no complicated features are implemented. However, to make the game playable the user is assigned with a single task. The goal of the game is drop packages at some predefined coordinates which are randomly selected as soon as the package is dropped. The package can be dropped in some predefined circle of radius around the target coordinates. So the steps can be summarized as: 
 
 \begin{itemize}
-	\item Fusce in aliquet neque, in pretium sem.
-	\item Donec tincidunt tellus id lectus pretium fringilla.
-	\item Nunc faucibus, erat pretium tempus tempor, tortor mi fringilla neque, ac congue ex dui vitae mauris.
+	\item Fly around and explore the world.
+	\item Fly to the target coordinates.
+	\item When you see a sign on the screen, drop the package. And go to the next coordinates.
+	\item Settings can be manually configured as desired, which change the shape and scale of the clouds.
+	\item The airplane's properties can also be configured using the menu.
 \end{itemize}
 
-Donec dapibus sodales ante, at scelerisque nunc laoreet sit amet. Mauris porttitor tincidunt neque, vel ullamcorper neque pulvinar et. Integer eu lorem euismod, faucibus lectus sed, accumsan felis. Nunc ornare mi at augue vulputate, eu venenatis magna mollis. Nunc sed posuere dui, et varius nulla. Sed mollis nibh augue, eget scelerisque eros ornare nec.
+A navigation bar is also added at the bottom of the screen which is just a projection of the players coordinates on the $x$-$z$ plane, this bar can be used for reaching the target coordinates as will be momentarily described.
 
-\begin{enumerate}
-	\item\label{step:first} Donec pretium et quam a cursus. Ut sollicitudin tempus urna et mollis.
-	\item Aliquam et aliquam turpis, sed fermentum mauris. Nulla eget ex diam.
-	\item Donec eget tellus pharetra, semper neque eget, rutrum diam Step~\ref{step:first}.
-\end{enumerate}
+\section{Playing the game}
 
-Praesent porta, metus eget eleifend consequat, eros ligula eleifend ex, a pellentesque mi est vitae urna. Vivamus turpis nunc, iaculis non leo eget, mattis vulputate tellus. Maecenas rutrum eros sem, pharetra interdum nulla porttitor sit amet. In vitae viverra ante. Maecenas sit amet placerat orci, sed tincidunt velit. Vivamus mattis, enim vel suscipit elementum, quam odio venenatis elit\footnote{Phasellus faucibus varius purus, nec tristique enim porta vitae.}, et mollis nulla nunc a risus. Praesent purus magna, tristique sed lacus sit amet, convallis malesuada magna. 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\textwidth]{images/game1.png}
+    \caption{First look}
+    \label{fig:first-look}
+\end{figure}
 
-\begin{description}
-	\item[Vestibulum venenatis] malesuada enim, ac auctor erat vestibulum et. Phasellus id purus a leo suscipit accumsan.
-	\item[Orci varius natoque] penatibus et magnis dis parturient montes, nascetur ridiculus mus. Nullam interdum rhoncus nisl, vel pharetra arcu euismod sagittis. Vestibulum ac turpis auctor, viverra turpis at, tempus tellus.
-	\item[Morbi dignissim] erat ut rutrum aliquet. Nulla eu rutrum urna. Integer non urna at mauris scelerisque rutrum sed non turpis.
-\end{description}
 
-\subsection{Lists with narrow spacing inbetween items}
-
-Phasellus ultricies, sapien sit amet ultricies placerat, velit purus viverra ligula, id consequat ipsum odio imperdiet enim:
-\begin{compactenum}
-	\item Maecenas eget lobortis leo.
-	\item Donec eget libero enim.
-	\item In eu eros a eros lacinia maximus ullamcorper eget augue.
-\end{compactenum}
+The image above provides a first look at the game, the config menu can be hidden using either the cross button or by pressing the key \textbf{F1}. Currently there is no way to change the airplane model from inside the game, the only way to do that is to change the source files.
 
 \bigskip
 
-In quis turpis metus. Proin maximus nibh et massa eleifend, a feugiat augue porta. Sed eget est purus. Duis in placerat leo. Donec pharetra eros nec enim convallis:
-\begin{compactitem}
-	\item Pellentesque odio lacus.
-	\item Maximus ut nisl auctor.
-	\item Sagittis vulputate lorem.
-\end{compactitem}
+\subsection{The controls}
 
-\bigskip
-
-Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae; Sed lorem libero, dignissim vitae gravida a, ornare vitae est.
+Following keys can be used to control the aircraft:
 \begin{compactdesc}
-	\item[Cras maximus] massa commodo pellentesque viverra.
-	\item[Morbi sit] amet ante risus. Aliquam nec sollicitudin mauris
-	\item[Ut aliquam rhoncus sapien] luctus viverra arcu iaculis posuere
+  \item[\textbf{W}:] Go forward (apply thrust)
+  \item[\textbf{D} or $\rightarrow$:] Tilt the plane towards right.
+  \item[\textbf{A} or $\leftarrow$:] Tilt the plane towards left.
+  \item[$\uparrow$:] Tilt the plane downwards.
+  \item[$\downarrow$:] Tilt the plane upwards.
+  \item[\textbf{space-bar}:] Drop the package
+  \item[\textbf{Q}:] Rotate the aircraft around the UP axis to the left.
+  \item[\textbf{E}:] Rotate the aircraft around the UP axis to the right.
 \end{compactdesc}
 
 
-\section{Images and figures}
+\subsection{Understanding the navigation bar}
+The navigation bar can be understood by looking at the picture below
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\textwidth]{images/figure1.png}
+    \caption{Projection of a point in 3d onto the plane}
+    \label{fig:projection}
+\end{figure}
 
-Aliquam vehicula luctus mi a pretium. Nulla quam neque, maximus nec velit in, aliquam mollis tortor. Aliquam erat volutpat. Curabitur vitae laoreet turpis. Integer id diam ligula. Nulla sodales purus id mi consequat, eu venenatis odio pharetra. Cras a arcu quam. Suspendisse augue risus, pulvinar a turpis et, commodo aliquet turpis. Nulla aliquam scelerisque mi eget pharetra. Mauris sed posuere elit, ac lobortis metus. Proin lacinia sit amet diam sed auctor. Nam viverra orci id sapien sollicitudin, a aliquam lacus suscipit, Figure~\ref{fig:example-1}:
+
+If the point in purple is the airplane then the point in red is its projection on to the plane and the blue vector gives its direction, this vector is exactly where the black arrow points in the navigation bar.
+
+The blue blinking dot is where the current target position is, it is relative meaning that the distance is scaled and capped so it remains within the navigation bar but if you're closer to the target then the blue point moves inside the circle indicating that you're near the target.
+
+
+\subsection{Dropping the package}
+
+When you are within the pre-specified acceptable radius of the target a text as show in Figure~\ref{fig:drop_text} appears on the screen.
+
+At which point you can press \textbf{space-bar} to drop the package and move to the next assigned point in the navigation bar.
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\textwidth]{images/figure2.png}
+    \caption{Text indicating the drop point}
+    \label{fig:drop_text}
+\end{figure}
+
+
+
+\section{Understanding the config menu}
 
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=0.6\textwidth,height=100px]{elte_cimer_szines}
-	\caption{Quisque ac tincidunt leo}
-	\label{fig:example-1}
+	\includegraphics[width=1.0\textwidth,height=0.5\textheight,frame]{images/figure3.png}
+	\caption{The configuration menu}
+	\label{fig:config_menu}
 \end{figure}
 
-\subsection{Framing figures}
+The first 7 configuration parameters (until \textbf{inducedYawFactor}) are for the aircraft. And they control/define the following things:
 
-Ut aliquet nec neque eget fermentum. Cras volutpat tellus sed placerat elementum. Quisque neque dui, consectetur nec finibus eget, blandit id purus. Nam eget ipsum non nunc placerat interdum.
-
-\begin{figure}[H]
-	\centering
-	\includegraphics[width=0.6\textwidth,height=100px,frame]{elte_cimer_szines}
-	\caption{Quisque ac tincidunt leo}
-\end{figure}
-
-\subsection{Subfigures}
-
-In non ipsum fermentum urna feugiat rutrum a at odio. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Nulla tincidunt mattis nisl id suscipit. Sed bibendum ac felis sed volutpat. Nam pharetra nisi nec facilisis faucibus. Aenean tristique nec libero non commodo. Nulla egestas laoreet tempus. Nunc eu aliquet nulla, quis vehicula dui. Proin ac risus sodales, gravida nisi vitae, efficitur neque, Figure~\ref{fig:example-2}:
-
-\begin{figure}[H]
-	\centering
-	\subcaptionbox{Vestibulum quis mattis urna}{
-		\includegraphics[width=0.45\linewidth]{elte_cimer_szines}}
-	\hspace{5pt}
-	\subcaptionbox{Donec hendrerit quis dui sit amet venenatis}{
-		\includegraphics[width=0.45\linewidth]{elte_cimer_szines}}
-	\caption{Aenean porttitor mi volutpat massa gravida}
-	\label{fig:example-2}
-\end{figure}
-
-Nam et nunc eget elit tincidunt sollicitudin. Quisque ligula ipsum, tempor vitae tortor ut, commodo rhoncus diam. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Phasellus vehicula quam dui, eu convallis metus porta ac.
-
-
-\section{Tables}
-
-Nam magna ex, euismod nec interdum sed, sagittis nec leo. Nam blandit massa bibendum mattis tristique. Phasellus tortor ligula, sodales a consectetur vitae, placerat vitae dolor. Aenean consequat in quam ac mollis. 
-
-\begin{table}[H]
-	\centering
-	\begin{tabular}{ | m{0.25\textwidth} | m{0.65\textwidth} | }
-		\hline
-		\textbf{Phasellus tortor} & \textbf{Aenean consequat} \\
-		\hline \hline
-		\emph{Sed malesuada} & Aliquam aliquam velit in convallis ultrices. \\
-		\hline
-		\emph{Purus sagittis} &  Quisque lobortis eros vitae urna lacinia euismod. \\
-		\hline
-		\emph{Pellentesque} & Curabitur ac lacus pellentesque, eleifend sem ut, placerat enim. Ut auctor tempor odio ut dapibus. \\
-		\hline
-	\end{tabular}
-	\caption{Maecenas tincidunt non justo quis accumsan}
-	\label{tab:example-1}
-\end{table}
-
-\subsection{Multi rows and multi columns}
-
-Mauris a dapibus lectus. Vestibulum commodo nibh ante, ut maximus magna eleifend vel. Integer vehicula elit non lacus lacinia, vitae porttitor dolor ultrices. Vivamus gravida faucibus efficitur. Ut non erat quis arcu vehicula lacinia. Nulla felis mauris, laoreet sed malesuada in, euismod et lacus. Aenean at finibus ipsum. Pellentesque dignissim elit sit amet lacus congue vulputate.
-
-\begin{table}[htb]
-	\centering
-	\begin{tabular}{ | c | r | r | r | r | r | r | }
-		\hline
-		\multirow{2}{*}{\textbf{Quisque}} & \multicolumn{2}{ c | }{\textbf{Suspendisse}} & \multicolumn{2}{ c | }{\textbf{Aliquam}} & \multicolumn{2}{ c | }{\textbf{Vivamus}} \\
-		\cline{2-7}
-		& Proin & Nunc & Proin & Nunc & Proin & Nunc \\
-		\hline \hline		
-		Leo & 2,80 MB & 100\% & 232 KB & 8,09\% & 248 KB & 8,64\% \\
-		\hline
-		Vel & 9,60 MB & 100\% & 564 KB & 5,74\% & 292 KB & 2,97\% \\
-		\hline
-		Auge & 78,2 MB & 100\% & 52,3 MB & 66,88\% & 3,22 MB & 4,12\% \\
-		\hline 
-	\end{tabular}
-	\caption[Rövid cím a táblázatjegyzékbe]{Vivamus ac arcu fringilla, fermentum neque sed, interdum erat. Mauris bibendum mauris vitae enim mollis, et eleifend turpis aliquet.}
-	\label{tab:example-2}
-\end{table}
-
-\subsection{Long tables over multiple pages}
-
-Nunc porta placerat leo, sit amet porttitor dui porta molestie. Aliquam at fermentum mi. Maecenas vitae lorem at leo tincidunt volutpat at nec tortor. Vivamus semper lacus eu diam laoreet congue. Vivamus in ipsum risus. Nulla ullamcorper finibus mauris non aliquet. Vivamus elementum rhoncus ex ut porttitor.
 
 \begin{center}
 	\begin{longtable}{ | p{0.3\textwidth} | p{0.7\textwidth} | }
 		
 		\hline
-		\multicolumn{2}{|c|}{\textbf{Praesent aliquam mauris enim}}
+		\multicolumn{2}{|c|}{\textbf{Aircraft parameters}}
 		\\ \hline
 		
-		\emph{Suspendisse potenti} & \emph{Lorem ipsum dolor sit amet}
+		\emph{Parameter} & \emph{Description}
 		\\ \hline \hline
 		\endfirsthead % table header on first page
 		
 		\hline
-		\emph{Suspendisse potenti} & \emph{Lorem ipsum dolor sit amet}
+		\emph{Parameter} & \emph{Description}
 		\\ \hline \hline
 		\endhead % table header on further pages
-		
+	
 		\hline
 		\endfoot % table footer on previous pages
 		
 		\endlastfoot % table footer on last page
 		
-		\emph{Praesent}
-		& Nulla ultrices et libero sit amet fringilla. Nunc scelerisque ante tempus sapien placerat convallis.
+		\emph{\textbf{rollFactor}}
+		& How much emphasis should be put on the roll control given by the user, the total roll torque is a weighted sum of user's roll and the stabilizing roll.
 		\\ \hline
 		
-		\emph{Luctus}
-		& Integer hendrerit erat massa, non hendrerit risus convallis at. Curabitur ultrices, justo in imperdiet condimentum, neque tortor luctus enim, luctus posuere massa erat vitae nibh.
+		\emph{\textbf{stabilizingRoll}}
+		& How much emphasis should be put on the stabilizing the aircraft, for example, if the aircraft is traveling fast it has a tendency to align itself towards the center, this parameter controls how strongly that should happen.
 		\\ \hline
 		
-		\emph{Egestas}
-		& Duis fermentum feugiat augue in blandit. Mauris a tempor felis. Pellentesque ultricies tristique dignissim. Pellentesque aliquam semper tristique. Nam nec egestas dolor. Vestibulum id elit quis enim fringilla tempor eu a mauris. Aliquam vitae lacus tellus. Phasellus mauris lectus, aliquam id leo eget, auctor dapibus magna. Fusce lacinia felis ac elit luctus luctus.
+		\emph{\textbf{pitchSpeed}}
+		& Factor by which changes to the current pitch should be applied. 
 		\\ \hline
 		
-		\emph{Dignissim}
-		& Praesent aliquam mauris enim, vestibulum posuere massa facilisis in. Suspendisse potenti. Nam quam purus, rutrum eu augue ut, varius vehicula tellus. Fusce dui diam, aliquet sit amet eros at, sollicitudin facilisis quam. Phasellus tempor metus vel augue gravida pretium. Proin aliquam aliquam blandit. Nulla id tempus mi. Fusce in aliquam tortor.
+		\emph{\textbf{yawSpeed}}
+		& Factor by which changes to the current yaw should be applied. 
 		\\ \hline
 		
-		\emph{Pellentesque}
-		& Donec felis nibh, imperdiet a arcu non, vehicula gravida nibh. Quisque interdum sapien eu massa commodo, ac elementum felis faucibus.
+		\emph{\textbf{rollSpeed}}
+		& Factor by which changes to the current roll should be applied. 
 		\\ \hline
 		
-		\emph{Molestie}
-		& Cras ullamcorper tellus et auctor ultricies. Maecenas tincidunt euismod lectus nec venenatis. Suspendisse potenti. Pellentesque pretium nunc ut euismod cursus. Nam venenatis condimentum quam. Curabitur suscipit efficitur aliquet. Interdum et malesuada fames ac ante ipsum primis in faucibus.
+		\emph{\textbf{maxThrottle}}
+		& Factor by which the force in the forward direction should be applied when the user presses \textbf{W}
 		\\ \hline
 		
-		\emph{Vivamus semper}
-		& In purus purus, faucibus eu libero vulputate, tristique sodales nunc. Nulla ut gravida dolor. Fusce vel pellentesque mi, vel efficitur eros. Nunc vitae elit tellus. Sed vestibulum auctor consequat. 
+		\emph{\textbf{inducedYawFactor}}
+		& When the airplane tilts around the $z$ axis, i.e it rolls there is also an induced yaw on it, this parameter determines how strong that induced yaw should be. 
 		\\ \hline
 		
-		\emph{Condimentum}
-		& Nulla scelerisque, leo et facilisis pretium, risus enim cursus turpis, eu suscipit ipsum ipsum in mauris. Praesent eget pulvinar ipsum, suscipit interdum nunc. Nam varius massa ut justo ullamcorper sollicitudin. Vivamus facilisis suscipit neque, eu fermentum risus. Ut at mi mauris.
+		\caption{Aircraft parameters}
+		\label{tab:aircraft_params}		
+	\end{longtable}
+\end{center}
+
+
+
+\begin{center}
+	\begin{longtable}{ | p{0.3\textwidth} | p{0.7\textwidth} | }
+		
+		\hline
+		\multicolumn{2}{|c|}{\textbf{Weather parameters}}
 		\\ \hline
 		
-		\caption{Praesent ullamcorper consequat tellus ut eleifend}
-		\label{tab:example-3}		
+		\emph{Parameter} & \emph{Description}
+		\\ \hline \hline
+		\endfirsthead % table header on first page
+		
+		\hline
+		\emph{Parameter} & \emph{Description}
+		\\ \hline \hline
+		\endhead % table header on further pages
+	
+		\hline
+		\endfoot % table footer on previous pages
+		
+		\endlastfoot % table footer on last page
+		
+		\emph{\textbf{Density Threshold}}
+		& The clouds have density between 0 and 1 at points in space, this determines the minimum density the point must to have to be rendered.
+		\\ \hline
+		
+		\emph{\textbf{Scale}}
+		& The scale at which the clouds should we sampled from the noise textures, lower values result in bigger fluffier clouds, higher values make them smaller and closer.
+		\\ \hline
+		
+		\emph{\textbf{HG}}
+		& The Henyey-Greenstein constant (further described in developer documentation).
+		\\ \hline
+		
+		\emph{\textbf{SIGMA}}
+		& The transmittance factor of the clouds.
+		\\ \hline
+		
+		\emph{\textbf{Higher Scale}}
+		& The scale at which noise from high frequency noise textures should be sampled from. Empirically, this was found to give good results between 15 and 20.
+		\\ \hline
+		
+		\emph{\textbf{Weather Scale}}
+		& The scale at which the parameters for the weather (i.e where clouds can be) should be sampled from the weather texture (due to the noise textures I have, this value should be extremely small).
+		\\ \hline
+		
+		\emph{\textbf{Cloud Height}}
+		& Height at which the clouds should be.
+		\\ \hline
+		
+		\caption{Weather parameters}
+		\label{tab:weather_params}		
 	\end{longtable}
 \end{center}
