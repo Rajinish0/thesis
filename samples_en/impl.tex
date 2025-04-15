@@ -250,7 +250,7 @@ A \textit{chunk} refers to a rectangular mesh of predefined size, where each ver
 
 In most implementations where non-repetitive chunks are required, noise algorithms are commonly used. The algorithm I have chosen is \textbf{Perlin Noise} \cite{perlin2002improving}, which is implemented in \texttt{perlin.cpp}. Assuming, for now that we have some sort of a Perlin noise implementation available, a chunk that only has height data may be generated as simply as the following pseudo code shows:
 
-\lstset{caption={Chunk generation}, label=src:frame_buffer}
+\lstset{caption={Chunk generation}, label=src:chunk_gen}
 \begin{lstlisting}[language=Python]
 def generateChunkData(size, scale):
 	chunkData = ChunkData(size, size)
@@ -334,6 +334,116 @@ Finally, the noise value at point $U$ is computed using bilinear interpolation:
 \[
 \texttt{noise}(U_x, U_y) = \texttt{lerp}(\texttt{lerp}(G_{tl}, G_{tr}, g(u)), \texttt{lerp}(G_{bl}, G_{br}, g(u)), g(v))
 \]
+
+\subsection{Calculating normals}
+In general, given a parametric surface $f(u, v)$ it is possible to obtain surface normal at specific points by the following formula: 
+\[ \hat{n} = \frac{\frac{\partial{f}}{\partial{u}} \times \frac{\partial{f}}{\partial{v}}}
+{\|\frac{\partial{f}}{\partial{u}} \times \frac{\partial{f}}{\partial{v}}\|}
+\]
+One way to imagine this is to see that $\frac{\partial{f}}{\partial{u}}$ and $\frac{\partial{f}}{\partial{v}}$ span the plane that is tangent to the surface, so their cross product gives the normal vector. For a more mathematically sound argument, you can refer to Paul's Online Notes \cite{dawkins_parametric_surfaces}.
+In our case the mesh is made up of triangles as seen in Figure~\ref{fig:mesh_eg} but we can still calculate surface normals using cross products.
+
+\begin{figure}[H]
+    \centering
+    \begin{minipage}[t]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/mesh_eg.png}
+        \caption{Mesh}
+        \label{fig:mesh_eg}
+    \end{minipage}
+    \hfill
+    \begin{minipage}[t]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/normal_eg.png}
+        \caption{Calculating normal of a triangle}
+        \label{fig:normal_eg}
+    \end{minipage}
+\end{figure}
+
+As Figure~\ref{fig:normal_eg} shows we can calculate the normal at vertex \textbf{A} by calculating $u \times v$ (or $v \times u$ this direction is usually checked empirically) where $u$ and $v$ are the vectors of the triangle. This figure is 2d but it can be imagined the all 3 points \textbf{A}, \textbf{B}, and \textbf{C} are at different heights but the math works the same. 
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\textwidth]{images/normal_calc.png}
+    \caption{Normal Calculation}
+    \label{fig:normal_calc}
+\end{figure}
+
+
+However, vertex \textbf{A} is in multiple triangles. Figure~\ref{fig:normal_calc} shows my approach for calculating the normals. I take the 4 vertices around \textbf{A} let's call them $\mathbf{a_0}...\mathbf{a_3}$ in either counterclockwise or clockwise ordering (depending on which way defines the vectors in the up direction). Then the normal vector can be calculated as follows:
+\[
+\vec{n} = \frac{1}{4}\sum_{i=0}^{i=3}{(\mathbf{a_i}-\mathbf{A}) \times (\mathbf{a_{(i+1) \bmod 4}} - \mathbf{A})}
+\]
+Which is the average of the the normal vectors for each of the 4 triangles. For this to work correctly, you must ensure the vertices are in the correct ordering.
+
+As the picture above suggests, this breaks down at the edges of the mesh. To circumvent this issue, I pad the mesh with extra set of vertices that is used just for the calculation of normals.
+
+So, the pseudocode with normals looks something like this:
+\lstset{caption={Chunk generation Part 2}, label=src:chunk_gen2}
+\begin{lstlisting}[language=Python]
+def generateChunkData(size, scale):
+	heightData = Matrix(size + 2, size + 2) // matrix with num rows, cols = size + 2
+	for i in range(size + 2):
+		for j in range(size + 2):
+			x = j * scale
+			y = i * scale
+			heightData[i, j] = noise(x, y)
+	
+	chunkData = ChunkData(size, size)
+	for i in range(1, size):
+		for j in range(1, size):
+			vs = getNeighbors(i, j) //should return list of 4  neighbors in the correct order
+			vertex = Vector(i, heightData[i, j] ,j)
+			normal = Vector(0, 0, 0)
+			for k in range(4):
+				a = vs[k]
+				b = vs[(k + 1) % 4]
+				normal += cross(a-vertex, b-vertex)
+			mag = normal.magnitude()
+			if mag != 0:
+				normal /= mag
+			chunkData[i-1, j-1].height = heightData[i, j]
+			chunkData[i-1, j-1].normal = normal			
+	return chunkData
+\end{lstlisting}
+
+\subsection{Geometry Shaders and verifying the correctness of the normals}
+
+It still needs to be checked if the normals calculated are actually correct and one way of doing that is to visualize them using geometry shaders. A tutorial for which can be found on LearnOpenGL \cite{learnopengl}. The \texttt{Shader} class provided with the engine takes an optional third argument -the geometry shader source file- so, integrating it into the existing system is easy.  
+
+A geometry shader can take primitives as input (a triangle in our case) and can output primitives. For each vertex of the triangle we can emit a line with two vertices one at the original vertex, the other one in the direction of the normal but scaled by some constant $\alpha$.
+
+The scene must be rendered twice once with the normal shader and again with the geometry shader. Figure~\ref{fig:terrain_normals} was obtained using this pipeline:
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\textwidth]{images/normals.png}
+    \caption{Visualizing Terrain Normals}
+    \label{fig:terrain_normals}
+\end{figure}
+
+
+\subsection{Tiling the chunks}
+Once we have the chunk generation function above it's not too hard to tile them. Since Perlin Noise accepts $(x, y)$ as the arguments we just need to make sure when going from one chunk to the next we give the correct coordinates to Perlin Noise. To do this, I extended the chunk generation function to accept one more argument: its \texttt{center}, using this it calculates the noise as it previously did from its top left corner but this time shifted by the \texttt{center} coordinates.
+
+The following pseudocode explains how it is done:
+\lstset{caption={Chunk generation Part 3}, label=src:chunk_gen3}
+\begin{lstlisting}[language=Python]
+def generateChunkData(size, center, scale):
+	heightData = Matrix(size + 2, size + 2) // matrix with num rows, cols = size + 2
+	tlX = (size - 1)/-2.0 //top left x
+	tlY = (size - 1)/2.0 //top left y
+	for i in range(-1, size + 1):
+		for j in range(-1, size + 1):
+			x = (center.x + tlX + j) * scale
+			y = (center.y + tlY - i) * scale
+			heightData[i, j] = noise(x, y)
+	
+	//rest remains same
+\end{lstlisting}
+
+If the loop started from \texttt{0}, then \texttt{center.x + tlX} would give the x-coordinate of the current chunk. However, at index $(0, 0)$, we actually want to sample from the previous chunk's coordinate space due to the padding added for normal calculation. Therefore, the loop must begin at \texttt{-1} to correctly align the noise sampling with the padded grid.
+
+
 
 
 \subsection{Equations, formulas}
