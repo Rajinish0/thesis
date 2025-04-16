@@ -443,100 +443,182 @@ def generateChunkData(size, center, scale):
 
 If the loop started from \texttt{0}, then \texttt{center.x + tlX} would give the x-coordinate of the current chunk. However, at index $(0, 0)$, we actually want to sample from the previous chunk's coordinate space due to the padding added for normal calculation. Therefore, the loop must begin at \texttt{-1} to correctly align the noise sampling with the padded grid.
 
+\subsection{Level Of Detail (LOD)}
+
+It's important for a better FPS to render the chunks near the player at a higher level of detail than those that are further away. LOD can be thought of in this case as the number of vertices in a given area or volume.
+
+To do this I first create a mesh and then further lower resolution meshes are created by skipping some vertices in the original mesh such that the first and the last vertices are not skipped because the mesh must extend from and to the same points. This begs the question then what should be the size of the original mesh? Consider a 1d mesh of size 10 as the picture below~\ref{fig:one_d} illustrates. We cannot skip every 2nd vertex because then we will have $\langle 0, 2, 4, 6, 8 \rangle$ and the last 9th vertex would be skipped.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\textwidth]{images/one_d.png}
+    \caption{1D mesh}
+    \label{fig:one_d}
+\end{figure}
+
+So, if $k$ is the skip factor and $s$ is the size of the mesh, then for us to be able to create a mesh, $k$ must divide $s-1$. We need to find $s$ such that $s-1$ has a lot of divisors, and a commonly chosen number is \textbf{$241$} since every number from $1$ to $6$ divides $240$ so we can create a mesh that has $\frac{1}{6}$ of the vertices in the original mesh.
+
+A common approach for this is to generate these meshes on the fly as a function of the distance from the player's coordinates. However, I found this method to not match my FPS goals. So, what I do instead is create the 6 LOD meshes beforehand and give the corresponding mesh its height and normal data through a texture. Height and normal data are stored in a texture, where both of them are packed into a \texttt{vec4} using the red, green, blue, and alpha channels. Each mesh then simply samples from this texture to obtain terrain shape and lighting information.
+
+Unlike traditional LOD systems that generate meshes at runtime based on camera distance, this approach precomputes multiple LOD meshes and uses texture data to drive the final geometry. This reduces runtime computation and improves FPS stability at the cost of some memory overhead.
+
+The image~\ref{fig:lod_terrain} below illustrates how \textbf{LOD} meshes look like in practice.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\textwidth]{images/LOD.png}
+    \caption{Visualizing LOD Terrain}
+    \label{fig:lod_terrain}
+\end{figure}
+
+\subsection{Multithreading}
+It is not feasible to draw and generate new chunks on the same thread; for instance, we may need to generate 9 chunks at once, which would block the main render loop and drop the frame rate. To avoid this, a new thread is dispatched for generating data for each chunk. Since the meshes are already pre-generated (as discussed in the LOD section), the data needed is just height and normals.
+Figure~\ref{fig:chunk_pipeline} illustrates this pipeline.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\textwidth]{images/chunk_process.png}
+    \caption{Chunk Drawing Pipeline}
+    \label{fig:chunk_pipeline}
+\end{figure}
+
+The \texttt{EndlessTerrain} class only draws a chunk once its data is ready. When a chunk is needed, it initializes a \texttt{HeightMapWrapper} instance, passing in the chunk center. This wrapper then launches a new thread to request height and normal data from the \texttt{ChunkDataGenerator} (which is just a simple function in the code). Once the data is computed, it is returned via a callback function, completing the pipeline.
+\\
+\textbf{\large IMPORTANT:}\\
+It is crucial to note that OpenGL operates strictly on a single thread—all OpenGL commands must be issued from the same thread that initialized the OpenGL context. Because of this, the \texttt{HeightMapWrapper} class handles all computation on the CPU first. Once the data is available (from the background thread), it schedules OpenGL commands to upload the data to the GPU as a texture, all on the main thread.
+
+\subsection{Caching and the \texttt{LRUCache} class}
+Imagine we generate 9 chunks around the player for a single frame, to avoid re-generating them in the next one we must cache them. A straightforward solution would be to use a hashmap where the key is the center of the chunk and the value is the corresponding height map. However, this approach leads to an unbounded cache, which can eventually exhaust system memory.
+
+To solve this, I used the \texttt{LRUCache} class that comes with the engine—a bounded version of the classic hashmap. If the maximum cache size is $n$ and a new key is inserted when the cache is full, the least recently used (LRU) key is evicted to make space.
+
+Since LRUCache is a well-known data structure, its full implementation details are omitted. However, figure~\ref{fig:lru_cache} illustrates its core design using a doubly linked list, which should provide enough insight into how the code operates.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\textwidth]{images/lru_cache.png}
+    \caption{LRUCache design}
+    \label{fig:lru_cache}
+\end{figure}
+
+\subsection{Early Culling}
+Notice that the methods above issue generate and draw commands for chunks that are not in the view frustum of the player. This introduces an overhead that can be easily avoided. For instance, the chunks that are behind the player can be omitted. To address this, I use a simple directional culling approach: Say, $\vec{d}$ is the direction of the camera and $\mathbf{P}$ is its position, when we are generating the $i_{th}$ chunk with center $\mathbf{C_i}$ around the player, let $\vec{v} = \mathbf{P}-\mathbf{C_i}$ be the direction of the chunk. We only generate data for the chunk if $\langle \vec{d}, \vec{v} \rangle > 0$ that is, both of those vectors point in the same direction. Note that if $\vec{v}$ is 2 dimensional that $\vec{d}$ must be projected on to the plane. In the code provided, $\mathbf{P}$ is projected onto the $x-z$ plane and so is $\vec{d}$.
+
+\textbf{Result:} This optimization led to a significant performance gain—FPS improved, and memory usage dropped from around 500 MB to around 100MB.
 
 
+\section{Volumetric Clouds}
+This section explains my implementation of volumetric clouds. Before delving into the details, I would like to acknowledge the resources that were instrumental in my work and would like to thank the online community: \cite{sebestianlague2019} \cite{shadertoy2013} \cite{guerrillagames2025nubis} \cite{reinder2018} \cite{fredrik} \cite{gamedevnet2015horizonzerodawn} \cite{palenik2016volumetricclouds} \cite{maxime2023} \cite{engel2016gpupro7}.
+\subsection{Ray Marching}
 
-\subsection{Equations, formulas}
+Before delving into cloud rendering, we must understand the basics of ray marching. Ray marching is a technique where we trace rays for each pixel on the screen. Unlike ray tracing, which requires information about polygonal geometry, ray marching only requires access to a signed distance function ($\text{sdf}$). 
 
-Duis suscipit ipsum nec urna blandit, $2 + 2 = 4$ pellentesque vehicula quam fringilla. Vivamus euismod, lectus sit amet euismod viverra, dolor metus consequat sapien, ut hendrerit nisl nulla id nisi. Nam in leo eu quam sollicitudin semper a quis velit.
+A signed distance function for an object $O$ and a point $P$ returns the distance from $P$ to the nearest point on $O$'s surface. It is:
+\begin{itemize}
+\item{positive if $P$ is outside the object}
+\item{negative if $P$ is inside}
+\item{and zero if $P$ lies on the surface}
+\end{itemize}
 
-$$a^2 + b^2 = c^2$$
+For example, the signed distance function for a sphere is:
+\[
+\text{sdf}(p) = \|p - c\| - r
+\]
+where $c$ is the center and $r$ is the radius of the sphere.
 
-Phasellus mollis, elit sed convallis feugiat, dolor quam dapibus nibh, suscipit consectetur lacus risus quis sem. Vivamus scelerisque porta odio, vitae euismod dolor accumsan ut.
+A ray is defined by its origin $P$ and direction $\vec{d}$. We represent it as a function of time:
+\[
+R(t) = P + \vec{d}t
+\]
 
-In mathematica, identitatem Euleri (equation est scriptor vti etiam notum) sit aequalitatem Equation~\ref{eq:euler}:
-\begin{equation}\label{eq:euler}
-e^{i \times \pi} + 1 = 0
-\end{equation}
+If there are multiple objects in the scene, the scene’s overall signed distance function is defined as:
+\[
+\text{sdf}_{\text{world}}(P) = \min_{\text{objects}} \text{sdf}_{\text{object}}(P)
+\]
 
-Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Nullam pulvinar purus at pharetra elementum.
-Aequationes adsignans aequationis signum:
-\begin{align}
-	A & = \frac{\pi r^2}{2} \\
-	& = \frac{1}{2} \pi r^2
-\end{align}
+Ray marching works by advancing the ray by the distance given by the $\text{sdf}$ at each step, as illustrated in the following code snippet:
 
-Proin tempor risus a efficitur condimentum. Cras lobortis ligula non sollicitudin euismod. Fusce non pellentesque nibh, non elementum tellus.
-Omissa numeratione aliquarum aequationum:
-\begin{align}
-	f(u) & =\sum_{j=1}^{n} x_jf(u_j) \nonumber \\
-	& =\sum_{j=1}^{n} x_j \sum_{i=1}^{m} a_{ij}v_i \nonumber \\
-	& =\sum_{j=1}^{n} \sum_{i=1}^{m} a_{ij}x_jv_i
-\end{align}
+\lstset{caption={Basic Ray Marching}, label=src:basic_raymarch}
+\begin{lstlisting}[language=C]
+int MAX_STEPS = 1000;
+float MIN_DIST = 1e-4;
+float MAX_DIST_TRAVEL = 1e3;
 
-\section{Source code samples}
-
-Nulla sodales purus id mi consequat, eu venenatis odio pharetra. Cras a arcu quam. Suspendisse augue risus, pulvinar a turpis et, commodo aliquet turpis. Nulla aliquam scelerisque mi eget pharetra. Mauris sed posuere elit, ac lobortis metus. Proin lacinia sit amet diam sed auctor. Nam viverra orci id sapien sollicitudin, a aliquam lacus suscipit. Quisque ac tincidunt leo Code~\ref{src:cpp} and \ref{src:csharp}:
-
-\lstset{caption={Hello World in C++}, label=src:cpp}
-\begin{lstlisting}[language={C++}]
-#include <stdio>
-
-int main() 
+vec3 trace(Ray r) // returns light info
 {
-	int c;
-	std::cout << "Hello World!" << std::endl;
+    vec3 currentPos = r.pos;
+    float totalDistTraveled = 0.0;
 
-	std::cout << "Press any key to exit." << std::endl;
-	std::cin >> c;
-	
-	return 0;
+    for (int i = 0; i < MAX_STEPS; ++i)
+    {
+        currentPos = r.pos + r.direction * totalDistTraveled;
+        float dist = sdf_world(currentPos);
+
+        if (dist < 0) break;
+
+        else if (dist < MIN_DIST) {
+            // do light calculation
+            return /* light info */;
+        }
+
+        if (totalDistTraveled > MAX_DIST_TRAVEL) break;
+
+        totalDistTraveled += dist;
+    }
+    return vec3(0.0);
 }
 \end{lstlisting}
 
-\lstset{caption={Hello World in C\#}, label=src:csharp}
-\begin{lstlisting}[language={[Sharp]C}]
-using System;
-namespace HelloWorld
-{
-	class Hello 
-	{
-		static void Main() 
-		{
-			Console.WriteLine("Hello World!");
-			
-			Console.WriteLine("Press any key to exit.");
-			Console.ReadKey();
-		}
-	}
-}
-\end{lstlisting}
+The illustration in Figure~\ref{fig:raymarching_eg} shows this process in 2D, which can be interpreted as a top-down view of a 3D scene.
 
-\subsection{Algorithms}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\textwidth]{images/raymarching_eg.png}
+    \caption{Ray marching example}
+    \label{fig:raymarching_eg}
+\end{figure}
 
-A general Interval Branch and Bound algorithm is shown in Algorithm~\ref{alg:ibb}. An appropriate selection rule is applied in Step~\ref{step:selrule}.\\
-Source of example: \href{https://www.inf.u-szeged.hu/actacybernetica/}{Acta Cybernetica (this is a hyperlink)}.
+When $\text{sdf}(p) = 0$, the surface near point $p$ can be locally approximated by the equation $\text{sdf}(p) = 0$. For an implicit surface $f(x, y, z) = c$ (which can be thought of as a equipotential surface in 3D or level curve in 2D), the surface normal is given by the gradient:
+\[
+\nabla f = \left\langle \frac{\partial f}{\partial x}, \frac{\partial f}{\partial y}, \frac{\partial f}{\partial z} \right\rangle
+\]
 
-\begin{algorithm}[H]
-\caption{A general interval B\&B algorithm} 
-\label{alg:ibb} 
-\textbf{\underline{Funct}} IBB($S,f$)
-\begin{algorithmic}[1] % display line numbers before every n line, here n = 1
-\State Set the working list ${\cal L}_W$ := $\{S\}$ and the final list ${\cal L}_Q$ := $\{\}$     
-\While{( ${\cal L}_W \neq \emptyset$ )} \label{alg:igoend}
-	\State  Select an interval $X$ from ${\cal L}_W$ \label{step:selrule}\Comment{Selection rule}  
-	\State Compute $lbf(X)$ \Comment{Bounding rule}		  
-	\If{$X$ cannot be eliminated} \Comment{Elimination rule}
-		\State Divide $X$ into $X^j,\ j=1,\dots, p$, subintervals   \Comment{Division rule}
-		\For{$j=1,\ldots,p$}
-			\If{$X^j$ satisfies the termination criterion} \Comment{Termination rule}
-				\State Store $X^j$ in ${\cal L}_W$ 
-			\Else
-				\State Store $X^j$ in ${\cal L}_W$ 
-			\EndIf
-		\EndFor  
-	\EndIf
-\EndWhile
-\State \textbf{return} ${\cal L}_Q$
-\end{algorithmic}
-\end{algorithm}
+Using a symmetric finite difference approximation:
+\[
+\frac{df}{dx} \approx \frac{f(x + h) - f(x - h)}{2h}
+\]
+
+we can approximate the normal at point $p$ from the signed distance function as:
+\[
+\vec{n} = \left\langle 
+\text{sdf}(p + h\hat{i}) - \text{sdf}(p - h\hat{i}),
+\text{sdf}(p + h\hat{j}) - \text{sdf}(p - h\hat{j}),
+\text{sdf}(p + h\hat{k}) - \text{sdf}(p - h\hat{k})
+\right\rangle
+\]
+
+This normal vector is then used in lighting calculations.\footnote{This reasoning was derived independently (so it's more intuitive than rigorous) but is consistent with standard SDF-based normal estimation techniques used in ray marching.}
+
+\subsection{Ray Marching for rendering volumes}
+For rendering volumetric surfaces like clouds instead of using $sdf$ functions a fixed step size $\delta$ is chosen and the ray is moved forward by this step size at each step. At each point $P$ in space density is sampled and the rendering is done based on how much density was observed, how much light passed through and so on. More details are in the following section but first for clouds my implementation makes a rectangular area in the sky where the clouds can be, this is a axis aligned bounding box (AABB). First, a check is done to see if the ray intersects this box; if yes, only then is the ray marched through the box.
+Next, we derive the intersection of a ray with AABB. Remember that a ray is given as $R(T) = P + \vec{d}t$. An axis aligned box can be defined by its top left coordinates and bottom right coordinates denoted as $b_{min}$, $b_{max}$.
+\[
+b_{min} \le P + \vec{d}t \le b_{max}
+\]
+\[
+b_{min} - P \le \vec{d}t \le b_{max} - P
+\]
+which gives 3 inequalities:
+\[
+\frac{(b_{min, x} - P_x)}{\vec{d}_x} \le t \le \frac{(b_{max, x} - P_x)}{\vec{d}_x}
+\]
+\[
+\frac{(b_{min, y} - P_y)}{\vec{d}_y} \le t \le \frac{(b_{max, y} - P_y)}{\vec{d}_y}
+\]
+\[
+\frac{(b_{min, z} - P_z)}{\vec{d}_z} \le t \le \frac{(b_{max, z} - P_z)}{\vec{d}_z}
+\]
+
+if $[t_{min}, t_{max}]$ is the intersection of those intervals, then the ray intersects the box if $t_{max} \ge t_{min}$ with $t_{min}$ being the nearest point of intersection and $t_{max}$ being the furthest. If the point is inside the box then clearly, $t_{min} < 0$ in this case we return $t_{max}$ as the intersection $t$. if $t_{max} < 0$, the box must be behind the ray, so there is no intersection.
+
+\subsection{Worley Noise}
