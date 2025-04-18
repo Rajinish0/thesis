@@ -511,7 +511,7 @@ Notice that the methods above issue generate and draw commands for chunks that a
 This section explains my implementation of volumetric clouds. Before delving into the details, I would like to acknowledge the resources that were instrumental in my work and would like to thank the online community: \cite{sebestianlague2019} \cite{shadertoy2013} \cite{guerrillagames2025nubis} \cite{reinder2018} \cite{fredrik} \cite{gamedevnet2015horizonzerodawn} \cite{palenik2016volumetricclouds} \cite{maxime2023} \cite{engel2016gpupro7}.
 \subsection{Ray Marching}
 
-Before delving into cloud rendering, we must understand the basics of ray marching. Ray marching is a technique where we trace rays for each pixel on the screen. Unlike ray tracing, which requires information about polygonal geometry, ray marching only requires access to a signed distance function ($\text{sdf}$). 
+Before rendering clouds, it's essential to understand the basics of ray marching. Ray marching is a technique where we trace rays for each pixel on the screen. Unlike ray tracing, which requires information about polygonal geometry, ray marching only requires access to a signed distance function ($\text{sdf}$). 
 
 A signed distance function for an object $O$ and a point $P$ returns the distance from $P$ to the nearest point on $O$'s surface. It is:
 \begin{itemize}
@@ -622,3 +622,264 @@ which gives 3 inequalities:
 if $[t_{min}, t_{max}]$ is the intersection of those intervals, then the ray intersects the box if $t_{max} \ge t_{min}$ with $t_{min}$ being the nearest point of intersection and $t_{max}$ being the furthest. If the point is inside the box then clearly, $t_{min} < 0$ in this case we return $t_{max}$ as the intersection $t$. if $t_{max} < 0$, the box must be behind the ray, so there is no intersection.
 
 \subsection{Worley Noise}
+Worley noise is a type of cellular noise that we are going to use for generating density textures for clouds. Typically, Worley noise works by choosing $n$ random feature points, in my code I have taken the liberty to call them anchor points. Then for a pixel at location $p$ we calculate its value:
+\[
+v_p = \min_{anchors} \|p - a_i\| 
+\]
+
+$v_p$ for all pixels should be normalized such that $0 \le v_p \le 1$. Figure~\ref{fig:worley_eg} visualizes how this looks like.
+
+\begin{figure}[H]
+    \centering
+    \begin{minipage}[t]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/worley.jpg}
+        \caption{Worley Noise \cite{wikipedia_worley} }
+        \label{fig:worley_eg}
+    \end{minipage}
+    \hfill
+    \begin{minipage}[t]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/worley_with_grid.jpg}
+        \caption{Grid Based Worley Noise \cite{wikipedia_worley}}
+        \label{fig:worley_grid}
+    \end{minipage}
+\end{figure}
+
+However, the naïve approach is computationally expensive, since it requires computing distances from each pixel to all anchor points—scaling poorly as the number of anchors increases. To make it efficient, a grid-based approach is used: the space is divided into regular grid cells, and one anchor point is placed in each cell.
+
+Now, the nearest anchor point for any given pixel can only lie within its own grid cell or one of the adjacent cells. This reduces the number of distance checks significantly.
+
+Normalization becomes straightforward as well: in 2D, the maximum possible distance to a corner in a unit grid cell is $\sqrt{2}$ (assuming the grid cells are of unit area), so the normalized score $s_p$ is:
+\[
+s_p = \frac{v_p}{\sqrt{2}}
+\]
+Similarly, in 3D, the normalization factor becomes $\sqrt{3}$:
+\[
+s_p = \frac{v_p}{\sqrt{3}}
+\]
+
+A more useful version in our case is \textbf{Inverted Worley Noise} which is calculated as $1 - s_p$. This gives the bubbly shapes that clouds have as the figure~\ref{fig:inverted_worley} below illustrates:
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\textwidth]{images/inverted_worley.png}
+    \caption{Inverted Worley Noise}
+    \label{fig:inverted_worley}
+\end{figure}
+
+In the following sections when I say Worley noise, I mean Inverted Worley Noise unless otherwise stated.
+
+\subsection{Making Tileable Worley Noise}
+As we will see in the following sections, Inverted Worley noise is used for generating 3D density textures which must be tileable. This means for a pixel on the edge we must take into consideration the cell that is on the other edge (imagine wrapping the grid around like a torus) and the anchor point it contains. My approach for this was to use what I called a deterministic random function which always produces the same value for the same input. The code snippet below shows how it works:
+\lstset{caption={Deterministic Random Function}, label=src:det_random}
+\begin{lstlisting}[language=Python]
+//returns anchor points for grid cell at position pos
+def det_random(pos : tuple):
+	random.seed(hash(pos))
+	return [random.random() for i in range(len(pos))]
+\end{lstlisting}
+
+Given some grid coordinates this function generates the anchor point for that cell, even though the anchor point itself is random, it will always give the same anchor point for a given grid cell (in that sense it is deterministic). This way we don't have to store these anchor points. Then we can get the score (or the color) for a pixel as follows:
+
+\lstset{caption={Tileable Worley Noise}, label=src:det_random}
+\begin{lstlisting}[language=Python]
+//returns anchor points for grid cell at position pos
+NUM_TILES  = #number of tiles (boxes)
+BOX_WIDTH = WIDTH / NUM_TILES
+BOX_HEIGHT = HEIGHT / NUM_TILES
+MAX_DIST = sqrt(BOX_WIDTH * BOX_WIDTH + BOX_HEIGHT * BOX_HEIGHT)
+def get_color(x, y):
+	color = 0.0
+	min_d = float('inf')
+
+	#get tile coordinates
+	tileX = x // BOX_WIDTH 
+	tileY = y // BOX_HEIGHT
+
+	#iterate over neighbor tiles
+	for i in range(-1, 2):
+		for j in range(-1, 2):
+			neighbor_y = (tileY + i) % NUM_TILES 
+			neighbor_x = (tileX + j) % NUM_TILES
+			anchor_offsetX, anchor_offsetY = det_random((neighbor_x, neighbor_y))
+
+			#rescale to actual coordinates, note these are not wrapped
+			anchor_x = (tileX + j + anchor_offsetX) * BOX_WIDTH
+			anchor_y = (tileY + i + anchor_offsetY) * BOX_HEIGHT
+
+			min_d = min(min_d, dist((x, y), (anchor_x, anchor_y)))
+	color = min_d/MAX_DIST
+	#inverted Worley
+	return (1 - color)
+			
+\end{lstlisting}
+
+All textures used in the game were pre generated using Python and the corresponding code can found can be found in the \textbf{\texttt{noise\_scripts}} subdirectory.
+\subsection{Fractional Brownian Motion}
+Nearly all noise functions used in procedural generation benefit from a technique called \textbf{Fractional Brownian Motion} (fBM). It enhances basic noise by layering multiple octaves—copies of the noise function with increasing frequency and decreasing amplitude—to produce a more complex, self-similar structure reminiscent of fractals. This gives a more natural, detailed appearance when zoomed in.
+
+The following code shows a typical fBM implementation:
+
+\lstset{caption={Fractional Brownian Motion}, label=src:fbm}
+\begin{lstlisting}[language=Python]
+FREQ_MULT = 2.0
+AMPL_MULT = 0.5
+
+def fbm(x, y, octaves):
+	ampl = 1 #amplitude
+    freq = 1 #fequency
+    value = 0.0
+    max_val = 0.0
+    
+    for i in range(octaves):
+        value += ampl * noise(x, y)
+        max_val += ampl 
+        ampl *= AMPL_MULT
+        x *= FREQ_MULT
+        y *= FREQ_MULT
+    
+    return value/MAX_NOISE_VAL # normalized
+			
+\end{lstlisting}
+
+Imagine a plot of a signal, the code above adds higher and higher frequency values of the signal with lower amplitudes to itself to make it appear self-similar.
+
+\subsection{Perlin Worley Noise}
+The inverted Worley noise is combined with Perlin noise to add detail to the low-density regions of Perlin noise, creating textures that result in puffier-looking clouds—a technique originating from Guerrilla Games \cite{guerrillagames2025nubis}. Before presenting the formula used to combine the two types of noise, we first define the remap function.
+\begin{definition}[Remap function]
+    \[\texttt{Remap}(a, old\_min, old\_max, new\_min, new\_max) =\]
+    \[new\_min + 
+    (new\_max - new\_min)\frac{a-old\_min}{old\_max - old\_min}\]
+\end{definition}
+
+Let \( p \) represent Perlin noise and \( w \) the inverted Worley noise. The Perlin-Worley noise is computed as:
+\begin{definition}[Perlin Worley Noise]
+    \[
+    \texttt{PerlinWorley}(p, w)\ = \texttt{remap}(p, 0.0, 1.0, w, 1.0) 
+    \]
+\end{definition}
+
+The figures below shows how FBM worley noise combined with Perlin noise looks like.
+
+\begin{figure}[H]
+    \centering
+    \begin{minipage}[t]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/pure_worley.png}
+        \caption{Worley Noise}
+        \label{fig:pure_worley}
+    \end{minipage}
+    \hfill
+    \begin{minipage}[t]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/fbm_worley.png}
+        \caption{FBM Worley Noise}
+        \label{fig:fbm_worley}
+    \end{minipage}
+    \hfill
+    \begin{minipage}[t]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/perlin_worley.png}
+        \caption{Perlin Worley Noise}
+        \label{fig:perlin_worley}
+    \end{minipage}
+\end{figure}
+
+\subsection{Textures And Sampling Density For Clouds}
+One of the 3D textures for clouds contains Perlin-Worley noise in the red channel, and Worley noise of increasing Frequencies in the green, blue, and alpha channels, this is referred to as the low frequency noise texture and its size is $128\times128\times128$. The base cloud is obtained as follows \cite{engel2016gpupro7}:
+
+\lstset{caption={Base Cloud}, label=src:base_cloud}
+\begin{lstlisting}[language=Python]
+float getCloudDensity(vec3 p)
+{
+    /*
+    normalize p before hand 
+    to be able to sample nicely from the texture,
+    in the code, this is usually done by multiply 
+    p with a uniform scale variable.
+    */
+    vec4 low_freq = texture(cloudTexture, p);
+    float wfbm = 0.625 * low_freq.g + 0.25 * low_freq.b + 0.125 * low_freq.a;
+    float baseCloud = Remap(low_frequency_noises.r, wfbm-1.0, 1.0, 0.0, 1.0);
+
+    return baseCloud;
+
+}
+\end{lstlisting}
+
+Another 3D texture referred to as high frequency noise texture contains Worley noise of increasing Frequencies, its size is $32\times32\times32$, and this is used for adding details on the edges of the clouds -- this step can be optimized, as we only need to add details to those clouds that are near a certain threshold to the camera.
+
+The last texture that I use is called a weather texture that contains following values \cite{engel2016gpupro7}:
+\begin{itemize}
+    \item Cloud Coverage: The percentage of cloud coverage in the sky
+    \item Precipitation: The chance that clouds will rain (This is not used in my code)
+    \item Cloud Type: A value of 0.0 indicates stratus, 0.5 indicates stratocumulus,
+    and 1.0 indicates cumulus clouds. 
+\end{itemize}
+
+
+I found the following code snippet on \cite{gamedevnet2015horizonzerodawn} for getting the density of of a cloud based on its type which is given by the weather map:
+\lstset{caption={Calculating Specific Cloud Density}, label=src:cloud_density}
+\begin{lstlisting}[language=C]
+
+#define STRATUS_GRADIENT vec4(0.0, 0.1, 0.2, 0.3)
+#define STRATOCUMULUS_GRADIENT vec4(0.02, 0.2, 0.48, 0.625)
+#define CUMULUS_GRADIENT vec4(0.00, 0.1625, 0.88, 0.98)
+    
+float getDensityForCloudOfType(float heightFraction, float cloudType){
+    float stratusFactor = 1.0 - clamp(cloudType * 2.0, 0.0, 1.0);
+    float stratoCumulusFactor = 1.0 - abs(cloudType - 0.5) * 2.0;
+    float cumulusFactor = clamp(cloudType - 0.5, 0.0, 1.0) * 2.0;
+
+    vec4 baseGradient = stratusFactor * STRATUS_GRADIENT + stratoCumulusFactor * STRATOCUMULUS_GRADIENT + cumulusFactor * CUMULUS_GRADIENT;
+
+    float result = remap(heightFraction, baseGradient.x, baseGradient.y, 0.0, 1.0) * remap(heightFraction, baseGradient.z, baseGradient.w, 1.0, 0.0);
+    return result;
+}
+
+\end{lstlisting}
+
+To understand what this function is doing, we imagine that the cloudType is $0$, in which case the baseGradient will just be STRATUS\_GRADIENT which defines how the density for the stratus cloud should be. Since stratus clouds are at lower height, the first remap in line $13$ is saying: the density should increase from $0.1$ to $0.2$ height, the second remap is saying: the density should decrease from height $0.2$ to $0.3$, their multiplication gives a gradient (a quadratic function) that is plotted in the image~\ref{fig:stratus_grad} below:
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\textwidth]{images/stratus_grad.png}
+    \caption{Height Gradient of Stratus Cloud}
+    \label{fig:stratus_grad}
+\end{figure}
+
+The base cloud above is then enhanced the following way \cite{engel2016gpupro7} \cite{gamedevnet2015horizonzerodawn}:
+\lstset{caption={Density For Cloud}, label=src:full_cloud}
+\begin{lstlisting}[language=Python]
+float getCloudDensity(vec3 p)
+{
+    /*baseCloud same as above
+    boundsMin, boundsMax are the min, max coords of the bounding rectangle (AABB)
+    */
+
+    /*this line is not needed if your coverage texture is good enough.*/
+    baseCloud = max(baseCloud-densityThreshold, 0.0)
+
+    heightFraction = (p.y - boundsMin.y)/(boundsMax.y-boundsMin.y)
+    weatherData = getWeatherTexture(p); //get data from weather texture
+
+    float heightGradient = getDensityForCloudOfType(weatherData.r);
+    baseCloud *= heightGradient;
+
+    float coverage = clamp(weatherData.g, 0., 1.) * coverageMultiplier;
+    float coverageCloud = remap(baseCloud, coverage, 1., 0., 1.);
+    coverageCloud *= coverage;
+    float finalCloud = coverageCloud;
+
+    if (finalCloud > 0)
+    {
+        /*make sure to scale p here too*/
+        high_freq = texture(cloudHighTexture, p);
+        float highFBM = high_freq.r * .625 + high_freq.g * .25 + high_freq.b * .125;
+        /*introduce some height based turbulence*/
+        float highModifier = mix(highFBM, 1.0-highFBM, saturate(heightFraction * 10.0));
+        /*add details to edges of the cloud (where density is lower)*/
+        finalCloud = remap(finalCloud, highModifier*0.2, 1.0, 0.0, 1.0);
+    }
+    return finalCloud;
+}
+\end{lstlisting}
