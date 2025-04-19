@@ -839,7 +839,7 @@ float getDensityForCloudOfType(float heightFraction, float cloudType){
 
 \end{lstlisting}
 
-To understand what this function is doing, we imagine that the cloudType is $0$, in which case the baseGradient will just be STRATUS\_GRADIENT which defines how the density for the stratus cloud should be. Since stratus clouds are at lower height, the first remap in line $13$ is saying: the density should increase from $0.1$ to $0.2$ height, the second remap is saying: the density should decrease from height $0.2$ to $0.3$, their multiplication gives a gradient (a quadratic function) that is plotted in the image~\ref{fig:stratus_grad} below:
+To understand what this function is doing, we imagine that the cloudType is $0$, in which case the baseGradient will just be STRATUS\_GRADIENT which defines how the density for the stratus cloud should be. Since stratus clouds are at lower height, the first remap in line $13$ is saying: the density should increase from $0.0$ to $0.1$ height, the second remap is saying: the density should decrease from height $0.2$ to $0.3$, their multiplication gives a gradient (a quadratic function) that is plotted in the image~\ref{fig:stratus_grad} below:
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.5\textwidth]{images/stratus_grad.png}
@@ -883,3 +883,302 @@ float getCloudDensity(vec3 p)
     return finalCloud;
 }
 \end{lstlisting}
+
+\subsection{Lighting}
+There is only one light source in the code: the sun. Its direction $\vec{w}_{sun}$ is a global parameter, note that this vector defines direction to the sun and not the other way around. To have accurate lighting for the clouds we need to correctly model how much light they transmit. The most thorough derivations of light calculation I could find were in Juraj Páleník's \cite{palenik2016volumetricclouds} thesis work, \cite{sebestianlague2019} \cite{reinder2018} also seemed to use similar calculations which were instrumental in my understanding of these equations.
+
+When light hits a particle the following things may happen \cite{palenik2016volumetricclouds}:
+\begin{itemize}
+    \item It may get absorbed by the particle and no longer contribute to lighting effects.
+    \item The light may get emitted by matter due to Planck's black body radiation.
+    \item The light may get scattered in a different direction.
+\end{itemize}
+
+Given a point $x$ and a direction $\vec{w}$, $L(x, \vec{w})$ defines the intensity of the light at point $x$ in the direction $\vec{w}$ (Here $\vec{w}$ is the direction that you shoot your ray in for ray marching). The following differential equation defines the above steps mathematically \cite{palenik2016volumetricclouds}:
+\[
+    \frac{\partial{L(x, \vec{w})}}{\partial{x}} = -(\alpha(x) + \sigma(x))L(x, \vec{w}) + L_e(x, \vec{w}) + L_i(x, \vec{w}) 
+\]
+
+Where $\alpha(x)$ is the light that is absorbed away and $\sigma(x)$ is the light that is scattered, this loss is proportional to how much light there was in the first place. $L_e(x, \vec{w})$ and $L_i(x, \vec{w})$ are the factors for light emitted in at point $x$ in the direction $\vec{w}$ and the light scattered in the direction of $\vec{w}$ which is commonly referred to as in-scattering.
+
+Now, the differential equation above is a first order equation (assuming $\vec{w}$ is constant) and we can put it in the standard form: 
+\[
+    y' + p(x)y = q(x)
+\]
+which can be solved using the integral factor: $u=e^{\int{p(x)dx}}$. Let's take $p(x) = (\alpha(x) + \sigma(x))$ and $q(x) = L_e(x, \vec{w}) + L_i(x, \vec{w})$.
+
+We get:
+\[
+(L(x, \vec{w})e^{\int{p(x)dx}})' = e^{\int{p(x)dx}}q(x)
+\]
+
+\[
+L(x, \vec{w}) = e^{-\int{p(x)dx}}\int{e^{\int{p(x)dx}}q(x)dx} + Ce^{-\int{p(x)dx}}
+\]
+
+If $b$ is the starting point then:
+\[
+L(a, \vec{w}) = e^{-\int_{b}^{a}{p(x)dx}}\int_b^{a}{e^{\int_x^{a}{p(t)dt}}q(x)dx} + Ce^{-\int_b^{a}{p(x)dx}}
+\]
+
+Where $C = L_b = L(b, \vec{w})$. $L_b$ represents the incoming light intensity at the starting point $b$ — for instance, this may be the background color or sky light depending on your implementation.
+
+\[
+L(a, \vec{w}) = e^{-\int_{b}^{a}{p(x)dx}}\int_b^{a}{e^{\int_x^{a}{p(t)dt}}q(x)dx} + L_be^{-\int_b^{a}{p(x)dx}}
+\]
+
+Rewriting the outer integral to carry out the multiplication:
+\[
+L(a, \vec{w}) = e^{-\int_{b}^{a}{p(t)dt}}\int_b^{a}{e^{\int_x^{a}{p(t)dt}}q(x)dx} + L_be^{-\int_b^{a}{p(x)dx}}
+\]
+
+\[
+L(a, \vec{w}) = \int_b^{a}{e^{-\int_{b}^{a}{p(t)dt}+\int_x^{a}{p(t)dt}}q(x)dx} + L_be^{-\int_b^{a}{p(x)dx}}
+\]
+
+\[
+L(a, \vec{w}) = \int_b^{a}{e^{-\int_{b}^{x}{p(t)dt}}q(x)dx} + L_be^{-\int_b^{a}{p(x)dx}}
+\]
+
+Adapting the convention from \cite{palenik2016volumetricclouds}, let $\tau(a, b) = \int_a^b{p(t)dt}$. The equation then becomes: 
+
+\[
+L(a, \vec{w}) = \int_b^{a}{e^{-\tau(b, x)}q(x)dx} + L_be^{-\tau(b, a)}
+\]
+
+To keep the equations same as in the literature, I will write it as:
+
+\begin{equation}\label{eq:light}
+L(a, \vec{w}) = \int_b^{a}{e^{-\tau(x, a)}q(x)dx} + L_be^{-\tau(b, a)}
+\end{equation}
+
+which is the same as above but we are integrating $\tau$ in the forward direction in the integral since we start at $b$ and end at $a$.
+
+As noted in \cite{palenik2016volumetricclouds}, the exact form of $L_i$ is the integral of light scattering from all directions (To be precise, this is a surface integral of probability of light scattering times the distribution in which the light scatters in given directions times the intensity of light): 
+
+\[
+    L_i(x, \vec{w}) = \frac{1}{4\pi}\int\sigma(x, \vec{w})\tilde{p}(x, w, w')I(x, w, w')d\Omega'
+\]
+
+Where $\tilde{p}$ is called the phase function which gives a distribution of redirection of light. Most implementations use the Henyey–Greenstein phase function to model the scattering directionality, which depends on the cosine of the angle between the incoming light direction $\vec{w}_{sun}$ and the viewing direction $\vec{w}$. The exact formula is omitted here as it does not provide significant insight, but it is implemented in the code and widely documented in the literature.
+
+Now we make some simplifications to evaluate this numerically and let's say $\rho(x)$ is the density at point $x$: \cite{palenik2016volumetricclouds}
+\begin{itemize}
+\item {This was previously mentioned but is worth reiterating: There is only one light source: the sun.}
+\item {$L_e(x) = 0$ - there is no emission from the clouds.}
+\item {$\alpha(x) = 0$ - no light is absorbed.}
+\item {$\sigma(x) = \sigma\rho(x)$} - the light that is scattered away is proportional to the density of the cloud at that point.
+\item {$L_i(x, \vec{w}) = \sigma\rho(x)\tilde{p}(\vec{w}.\vec{w}_{sun})e^{-\int_c{\sigma\rho(s)ds}}$} - this is a practical approximation of the in-scattered light. The integral is computed along the ray from point $x$ to the sun and represents the attenuated intensity of sunlight at $x$, according to Beer's law, which states that light intensity decays exponentially as it travels through a participating medium. 
+\end{itemize}
+
+Substituting the above simplifications into Equation~\ref{eq:light} we get:
+\[
+L(a, \vec{w}) = L_be^{-\tau(b, a)} + \int_b^a{e^{-\tau(x, a)}L_i(x, \vec{w})dx}
+\]
+
+and 
+\[
+\tau(a, b) = \int_a^b{\sigma\rho(x)dx}
+\]
+
+\[
+L(a, \vec{w}) = L_be^{-\tau(b, a)} + \int_b^a{e^{-\tau(x, a)}\sigma\rho(x)\tilde{p}(\vec{w}.\vec{w}_{sun})
+e^{-\int_c{\sigma\rho(s)ds}} dx}
+\]
+
+Making it discrete, and assuming the integral from $b$ to $a$ is divided into $N$ steps:
+\[
+L(a, \vec{w}) = L_be^{-T_N} + \sigma\tilde{p}\sum_{i=0}^{N-1}
+e^{-T_i}\rho_ie^{-T_i'}\Delta{x}
+\]
+Where 
+\[
+T_i = \sum_{j=0}^{i}\sigma\Delta{x}\rho_j
+\]
+And, 
+\[
+T_i' = \sigma\Delta{s}\sum_{j=1}^{k}\rho(x + \vec{w}_{sun}j\Delta{s})
+\]
+which is accumulating the density towards the sun, and in practice $k$ is around 6 as mentioned in \cite{guerrillagames2025nubis}.
+
+\subsection{The Complete Pipeline}
+The terrain is rendered first to a framebuffer object (FBO). The cloud rendering pipeline then uses the textures from this FBO as input, layering volumetric clouds on top of the scene — a process commonly known as deferred shading.
+
+A compute shader is used to cast rays from every pixel on the screen. Rays that do not intersect the cloud bounding volume are terminated early for efficiency. For rays that do intersect, the shader performs ray marching through the cloud volume and accumulates light based on the equations discussed previously.
+
+Finally, the result of the compute shader is drawn to the screen.
+
+The figures below show the clouds enclosed within their bounding volume, from both top and bottom perspectives.
+
+\begin{figure}[H]
+    \centering
+    \begin{minipage}[t]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/clouds1.png}
+        \caption{Clouds top view}
+    \end{minipage}
+    \hfill
+    \begin{minipage}[t]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{images/clouds2.png}
+        \caption{Clouds bottom view}
+    \end{minipage}
+\end{figure}
+
+\section{Rigid Body And Airplane}
+This section explains my implementation of rigid body and the \texttt{airplane} class with some physics background.
+
+\subsection{Basics}
+Given $x(t)$ the position of an object at time t, the velocity is defined as the first derivative of this $v(t) = \dot{x} = \frac{dx}{dt}$ and the acceleration is the derivative of velocity so, $a(t) = \dot{v} = \frac{d^2x}{dt^2}$. We can get position by integrating acceleration as follows: $x = x_0 + v_0t + \frac{a}{2}t^2$. In the code, the rigid body stores the position and the velocity of the body and the updates are performed using euler integration:
+
+\begin{equation}
+\label{eq:vel_update}
+v_{new} = v_{old} + a\Delta{t}
+\end{equation}
+\begin{equation}
+\label{eq:pos_update}
+x_{new} = x_{old} + v\Delta{t}
+\end{equation}
+
+But the rigid body has infinite points, which position do we store?
+
+\subsection{Center Of Mass}
+Due to Newton's third law which states that: every action has an opposite reaction, we know that the momentum in a closed system is conserved so the force on a object is equal to the external force. If the object is composed of tiny masses $m_i$ at positions $x_i$ we can write this external force as:
+\[
+F = \sum{m_i\frac{d^2x_i}{dt^2}}
+\]
+\[
+F = \frac{d^2(\sum{m_ix_i})}{dt^2}
+\]
+If M is the total mass then:
+\[
+F = M\frac{d^2(\sum{\frac{m_ix_i}{M}})}{dt^2}
+\]
+\[
+F = M\frac{d^2R_{CM}}{dt^2}
+\]
+Where $R_{CM} = \sum{\frac{m_ix_i}{M}}$ is the center of mass of the rigid body. Since the external force only acts on this point we only need to store this.
+
+\subsection{Linear Force}
+When a force $F$ is applied, the acceleration of the rigid body can be calculated as 
+\[
+a = F/m
+\]
+This acceleration is then used with equations~\ref{eq:vel_update} and \ref{eq:pos_update} to update the state of the rigid body. Technically, this should be thought of as an impulse which is force applied for time $\Delta t$.
+
+\subsection{Rotational Motion and Torque}
+
+\usetikzlibrary{calc}
+
+\begin{center}
+% \begin{tikzpicture}
+%   % Original triangle points
+%   \coordinate (A) at (0,0);
+%   \coordinate (B) at (4,0);
+%   \coordinate (C) at (4,3);
+
+%   % Rotate point C around A by dtheta
+%   \def\dtheta{10} % degrees
+%   \coordinate (D) at ($(A)!1!(C)$); % same as C, for rotation
+% %   \path[name path=rotated] (A) -- ($(A)!1!(C)$);
+%   \coordinate (D) at ([rotate around={\dtheta:(A)}]C);
+
+%   % Draw original triangle ABC
+%   \draw[thick] (A) -- (B) -- (C) -- cycle;
+%   \node[below left] at (A) {A};
+%   \node[below right] at (B) {B};
+%   \node[above right] at (C) {C};
+
+%   % Angle theta
+%   \draw[->] (1, 0) arc[start angle=0, end angle=36.87, radius=1cm];
+%   \node at (1.2, 0.3) {$\theta$};
+
+%   % Label sides
+%   \node at (2, -0.3) {c};
+%   \node at (4.3, 1.5) {a};
+%   \node at (2.42, 1.45) {r};
+
+%   \draw[->] (1, 0) arc[start angle=36.87, end angle=46.87, radius=1cm];
+
+%   % Draw new triangle ACD
+%   \draw[dashed, thick, red] (A) -- (C) -- (D) -- cycle;
+%   \node[above right] at (D) {D};
+
+% \end{tikzpicture}
+
+\begin{tikzpicture}
+  % Original triangle points
+  \coordinate (A) at (0,0);
+  \coordinate (B) at (4,0);
+  \coordinate (C) at (4,3);
+  \coordinate (E) at (4, 4.187);
+
+  % Rotate point C around A by dtheta
+  \def\dtheta{20} % degrees
+  \coordinate (D) at ([rotate around={\dtheta:(A)}]C);
+
+  % Draw original triangle ABC
+  \draw[thick] (A) -- (B) -- (C) -- cycle;
+%   \node[below left] at (A) {A};
+%   \node[below right] at (B) {B};
+%   \node[above right] at (C) {C};
+
+  % Angle theta (angle at A between AB and AC)
+  \draw[->] (1, 0) arc[start angle=0, end angle=36.87, radius=1cm];
+  \node at (1.2, 0.3) {$\theta$};
+
+  % Label triangle sides
+  \node at (2, -0.3) {x};
+  \node at (4.3, 1.5) {y};
+  \node at (2.42, 1.45) {r};
+
+  \node at (3.366349, 4.4) {$dx$};
+  \node at (4.3, 3.5935) {$dy$};
+
+  % Draw new triangle ACD
+  \draw[dashed, thick, red] (A) -- (C) -- (D) -- cycle;
+%   \node[above right] at (D) {D};
+
+  \draw[dashed, thick, blue] (C) -- (E) -- (D) -- cycle;
+
+  % Draw the small delta-theta arc between AC and AD
+  \draw[->, thick, blue] (0.8, 0.6) arc[start angle=36.87, end angle=36.87+\dtheta, radius=1.2cm];
+  \node[blue] at (0.82038719, 0.8757653) {$d\theta$};
+
+\end{tikzpicture}
+\end{center}
+
+To understand rotational motion take the figure above and imagine the particle is at coordinates $(x, y)$ and is rotated by angle $d\theta$ because of some force. From the picture above it can be seen that $dx = -rd\theta\sin\theta = -rd\theta\frac{y}{r} = -yd\theta$. Similarly, $dy = xd\theta$. From this we get:
+\[
+\frac{dx}{dt} = v_x = -y\frac{d\theta}{dt} = -y\omega
+\]
+\[
+\frac{dy}{dt} = y_x =  x\frac{d\theta}{dt} = x\omega
+\]
+
+Where $\omega=\frac{d\theta}{dt}$ is called the angular velocity. Since $v = \sqrt{v_x^2 + v_y^2}$ is the tangential velocity, we get:
+\[
+v = \sqrt{y^2\omega^2 + x^2\omega^2} = r\omega
+\].
+
+Since work is defined as Force times the displacement, torque is derived from this. Let's look at what the work is in the above equations:
+
+\[ 
+W = F_xdx + F_ydy
+\]
+\[ 
+= F_x(-yd\theta) + F_y(xd\theta)
+\]
+\[ 
+= (xF_y - yF_x)d\theta
+\]
+Work is torque times how much the object rotated. 
+\[
+\tau = xF_y - yF_x
+\]
+
+It can be calculated that this is the derivative of $L = xP_y - yP_x$ which is defined as the angular momentum (where $P$ is the linear momentum). The magnitude of $L$ can be calculated as follows: $L = mv_{\perp}r = mr^2w$. Same as the linear momentum, the term $mr^2$ can be thought of as the hardness to rotate an object, and this is defined as the moment of inertia: $I = mr^2$.
+
+All equations mentioned above have 3D analogues which are more useful to us. Angular velocity can be imagined as a vector that is perpendicular to the plane of rotation.
+
+Torque in 3D is given as: $\tau = r \times F$. The tangential velocity is given as $v = \omega \times r$. These can be imagined using the right hand rule for cross products. For a more thorough physics derivation, consult an introductory physics book.
