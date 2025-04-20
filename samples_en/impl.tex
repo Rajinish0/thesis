@@ -1153,7 +1153,7 @@ To understand rotational motion take the figure above and imagine the particle i
 \frac{dx}{dt} = v_x = -y\frac{d\theta}{dt} = -y\omega
 \]
 \[
-\frac{dy}{dt} = y_x =  x\frac{d\theta}{dt} = x\omega
+\frac{dy}{dt} = v_y =  x\frac{d\theta}{dt} = x\omega
 \]
 
 Where $\omega=\frac{d\theta}{dt}$ is called the angular velocity. Since $v = \sqrt{v_x^2 + v_y^2}$ is the tangential velocity, we get:
@@ -1181,4 +1181,224 @@ It can be calculated that this is the derivative of $L = xP_y - yP_x$ which is d
 
 All equations mentioned above have 3D analogues which are more useful to us. Angular velocity can be imagined as a vector that is perpendicular to the plane of rotation.
 
-Torque in 3D is given as: $\tau = r \times F$. The tangential velocity is given as $v = \omega \times r$. These can be imagined using the right hand rule for cross products. For a more thorough physics derivation, consult an introductory physics book.
+Torque in 3D is given as: $\tau = r \times F$. The tangential velocity is given as $v = \omega \times r$. The angular momentum is given as: $L = r \times p$ .These can be imagined using the right hand rule for cross products. For a more thorough physics derivation, consult an introductory physics book.
+
+The other more useful representation for $L$ and $\tau$ can be derived as follows:
+
+\[
+L = r \times p
+\]
+\[ 
+= r \times mv
+\]
+\[ 
+= mr \times v
+\]
+\[ 
+= mr \times (\omega \times r)
+\]
+\[ 
+= mr \times 
+\begin{bmatrix}
+    w_yr_z - w_zr_y \\
+    w_zr_x - w_xr_z \\
+    w_xr_y - w_yr_x  
+\end{bmatrix}
+\]
+\[
+= m
+\begin{bmatrix}
+    r_yw_xr_y - r_yw_yr_x - r_zw_zr_x + r_zw_xr_z \\
+    r_zw_yr_z - r_zw_zr_y - r_xw_xr_y + r_xw_yr_x \\
+    r_xw_zr_x - r_xw_xr_z - r_yw_yr_z + r_yw_zr_y
+\end{bmatrix}
+\]
+\[
+= m
+\begin{bmatrix}
+    (r_y^2 + r_z^2)w_x - r_yw_yr_x - r_zw_zr_x\\
+    -r_xw_xr_y + (r_z^2 + r_x^2)w_y - r_zw_zr_y \\
+    -r_xw_xr_z - r_yw_yr_z + (r_x^2 + r_y^2)w_z
+\end{bmatrix}
+\]
+\[
+= m
+\begin{bmatrix}
+    (r_y^2 + r_z^2) && -r_yr_x && -r_zr_x\\
+    -r_xr_y && (r_z^2 + r_x^2) && -r_zr_y \\
+    -r_xr_z && -r_yr_z && (r_x^2 + r_y^2)
+\end{bmatrix}
+\begin{bmatrix}
+    w_x\\
+    w_y\\
+    w_z
+\end{bmatrix}
+\]
+\[
+= I\omega
+\]
+
+Where $I$ is called the inertia tensor. The off diagonal elements are non-intuitive but since this matrix is symmetric, we can diagonalize it so in the eigenbasis the inertia tensor is just a diagonal matrix.
+
+Similarly, torque can be written as:
+\[ 
+\tau = I\alpha
+\]
+
+Where $\alpha$ is the angular acceleration. This equation is the rotational analogue of $F=ma$.
+
+To proceed with rotational updates, we first need to decide how to represent orientation in 3D space.
+
+\subsection{Orientation in 3D and Quaternions}
+There are generally three common ways to represent the orientation of a rigid body in 3D. The most well-known method is Euler angles, represented as $(\alpha, \beta, \gamma)$, corresponding to rotations around the $x$, $y$, and $z$ axes. However, this approach is prone to Gimbal lock. Depending on the order in which you apply the rotations, certain configurations can lead to the loss of a degree of freedom. More insights on this can be found in this YouTube video \cite{gimble_video}.
+
+Another method is to represent orientation using a rotation matrix $R$. However, during numerical integration, it's common for the matrix $R$ to lose its orthonormality, requiring periodic re-orthogonalization. Additionally, it requires storing 9 values, which is relatively inefficient.
+
+The most common way of storing orientations in modern physics engines is with quaternions. Quaternions are generalized versions of complex numbers. A quaternion $q$ is represented as:
+\[
+q = a + bi + cj + dk
+\]
+where $a$ is called the real part, and $b$, $c$, and $d$ are the imaginary components. If you try really hard, you can imagine this as a unit vector in 4 dimensions.
+
+A video from 3Blue1Brown \cite{3b1b_video} explains how to visualize quaternions in 3D using stereographic projection. Another video \cite{sutrabla_video} explains how they are used for rotations. However, the most rigorous and understandable derivation I could find was in Oleg Viro's lecture notes \cite{viro2016lecture}.
+
+The two representations of quaternions useful for us at the moment are as follows:  
+If $q = \cos{\frac{\theta}{2}} + u\sin{\frac{\theta}{2}}$, where $u \in \mathbb{R}^3$ is a unit vector, then the mapping $\mathbb{R}^3 \rightarrow \mathbb{R}^3 : p \rightarrow qp\bar{q}$ describes a rotation of $p$ around the axis $u$ by angle $\theta$.
+
+The other interpretation comes from \cite{sutrabla_video}, where we take a unit quaternion $q = w + xi + yj + zk$ and interpret $w = 1.0$ as no rotation, $x = 1.0$ as a counterclockwise rotation around the $x$-axis, $x = -1.0$ as a clockwise rotation around the $x$-axis, and so on. This interpretation is especially useful in our context, since we use quaternions directly to represent orientation. Remember, these are unit quaternions—so as we adjust $x$ to go from 1.0 to -1.0, the other values must also change accordingly to preserve unit length:
+\[
+\|q\| = \sqrt{w^2 + x^2 + y^2 + z^2} = 1
+\]
+
+Since quaternions are vectors in 4D, using them avoids Gimbal lock entirely. They also make interpolating between two orientations much simpler through SLERP\footnote{Spehrical Linear Interpolation (SLERP) can actually be motivated from complex numbers. If you imagine representing 2D angles as complex numbers, and think about how you would interpolate between two angles, this naturally leads to an explanation for interpolating quaternions. However, this is not directly relevant here, so I decided not to go into it.}. For all these reasons, I chose to use quaternions for rigid body orientation—just like most modern physics engines do.
+
+\subsection{Update equations for rotational motion}
+When a torque $\tau$ is applied, we can get the angular acceleration as:
+\[
+\alpha=I^{-1}\tau
+\]
+However, this is not quite right, the inertia tensor is defined in the original basis vectors and not the rotated basis vectors (the orientation) of the body. If $R$ is the current orientation of the body then the correct equation is:
+\[
+\alpha=RI^{-1}R^{-1}\tau
+\]
+Which can be thought of as follows: transform torque to the original coordinate system, apply inverse inertia tensor transformation, and transform it back to the rotated coordinate system. If $R$ is the matrix of eigenvectors of $I^{-1}$ \footnote{Or eigenvectors of $I$, since $I$ is a symmetric matrix the eigenvectors of $I$ and $I^{-1}$ are the same and the eigenvalues are reciprocals of each other}, then $RI^{-1}R^{-1}$ will be a diagonal matrix (note that $R$ is orthogonal). So, in this situation torque will be in the same direction as the angular acceleration but that is not usually the case.
+
+If $q$ is the current orientation of the body given in quaternions then the updates are done as follows:
+
+\begin{equation}
+\label{eq:angvel_update}
+\omega_{new} = \omega_{old} + \alpha\Delta{t}
+\end{equation}
+
+\begin{equation}
+\label{eq:orient_update}
+q_{new} = q_{old} + \frac{\Delta{t}}{2}\dot{q}_{old}.q_{old}
+\end{equation}
+Where 
+\[
+\dot{q}=0+\dot{q}_xi+\dot{q}_yj+\dot{q}_zk
+\]
+\[
+\dot{q}=0+\omega_xi+\omega_yj+\omega_zk
+\]
+In other words, $\dot{q}$ is the $\omega$ vector represented as a quaternion.
+
+A derivation of this fact: $\frac{dq(t)}{dt}=\frac{1}{2}\omega(t)q(t)$ can be found in David H. Eberly's Game Physics book \cite{gamephy}.
+
+In practice, $q_{new}$ should also be normalized as it must be a unit quaternion.
+
+\subsection{The \texttt{RigidBody} class}
+The \texttt{RigidBody} class in the code encomposses the functionality described above. The methods \texttt{applyTorque}, \texttt{applyForce} behave as you would expect. However, this class also provides \texttt{applyRelativeTorque}, \texttt{applyRelativeForce} methods which apply the provided force relative to the current orientation.
+This is supposed to be used with other classes as this by itself has no physical meaning and it represents an abstract body. To be able to draw an object it must inherit from the \texttt{Model} (or \texttt{Mesh}) class and to give it physics properties it must inherit from \texttt{RigidBody} class. Nevertheless, a simple example usage is given below:
+\lstset{caption={Rigid Body example}, label=src:rigid_body}
+\begin{lstlisting}[language=C++]
+#include "rigid_body.h"
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/quaternion.hpp>
+
+void main(){
+    RigidBody obj{/*mass*/ 1.0f, /*pos*/ glm::vec3(0.0f), 
+                  /*orient*/ glm::quat(1.0f, 0.0f, 0.0f, 0.0f), 
+                  /*inertia tensor*/ glm::mat3(1.0f)};
+
+    obj.applyForce(glm::vec3(2.0f, 0.0f, 0.0f));
+    obj.applyRelativeTorque(glm::vec3(1.0f, 0.0f, 0.0f));
+
+    obj.update(0.1f);
+}
+\end{lstlisting}
+
+\subsection{Airplane}
+Normally, when modeling aircraft physics one needs to take into account the lift, drag, and other related forces. For instance, An airplane takes off by generating a pressure difference near the wings, it tilts in a similar fashion with the pressure difference being different for both the wings. However, accurately modeling such phenomena is beyond the scope of this thesis. Instead, I use simplified approximations that strike a balance between physical plausibility and computational efficiency.
+
+\subsection{Estimation of Forces}
+\paragraph{Thrust}
+Thrust is modeled as a direct force along the aircraft's longitudinal axis, controlled by the throttle input:
+\begin{equation}
+\vec{F}_{thrust} = \text{throttle} \times \text{maxThrottle} \times \vec{d}_{forward}
+\end{equation}
+
+Where $\vec{d}_{forward}$ is the forward direction vector of the aircraft, and throttle is a normalized input value indicated if the forward key was pressed or not.
+
+\paragraph{Control Surface Forces}
+Rather than explicitly modeling airflow over control surfaces, the implementation directly maps control inputs to torques:
+
+\begin{equation}
+\vec{\tau}_{pitch} = \text{pitchInput} \times \text{pitchSpeed} \times (1 - |\text{currentPitch}|)
+\end{equation}
+
+\begin{equation}
+\vec{\tau}_{roll} = \text{rollInput} \times \text{rollSpeed}
+\end{equation}
+
+\begin{equation}
+\vec{\tau}_{yaw} = \text{yawInput} \times \text{yawSpeed}
+\end{equation}
+
+The pitch control includes a factor of $(1 - |\text{currentPitch}|)$ which reduces effectiveness at extreme pitch angles, simulating control surface saturation.
+
+\paragraph{Stabilizing Effects}
+To simulate natural stability without implementing a full aerodynamic model, corrective torques are applied based on the current orientation:
+
+\begin{equation}
+\vec{\tau}_{stabilize\_roll} = -\text{currentRoll} \times \text{stabilizingFactor}
+\end{equation}
+
+\begin{equation}
+\vec{\tau}_{stabilize\_pitch} = -\text{currentPitch} \times \text{stabilizingFactor}
+\end{equation}
+
+These torques tend to restore the aircraft to level flight when no control inputs are applied, approximating the static stability of typical aircraft designs.
+
+\paragraph{Cross-Coupling Effects}
+To simulate how real aircraft movements are coupled, additional effects are approximated:
+
+\begin{equation}
+\vec{\tau}_{induced\_yaw} = \text{currentRoll} \times \text{inducedYawFactor}
+\end{equation}
+
+\begin{equation}
+\vec{\tau}_{induced\_pitch} = -|\text{roll}| \times 0.1
+\end{equation}
+
+The induced yaw effect simulates the natural tendency of aircraft to yaw in the direction of roll, caused by differential drag on the wings. The induced pitch effect approximates the slight nose-down tendency when banking.
+
+\paragraph{Practical Implementation}
+These estimations, while simplified, create a flight model that captures the essential behavior of aircraft without the computational overhead of true aerodynamic simulation. The result is an intuitive flying experience that maintains physical plausibility while being easy to implement and tune.
+
+\begin{lstlisting}[language=C++, caption={Force application in update method}, label=src:force_application]
+// Apply thrust
+applyRelativeForce(glm::vec3(0.0f, 0.0f, -1.0f) * throttle * maxThrottle);
+
+// Apply combined control torques
+applyRelativeTorque(glm::vec3(
+    (pitch*(1-std::fabs(currentPitch)) + stabilizingPitch + inducedPitch) * pitchSpeed,
+    (yaw + inducedYaw) * yawSpeed,
+    (roll*.75+stabilizingRoll*stabilizingRollFactor) * rollSpeed
+));
+\end{lstlisting}
+
+The simplicity of this approach allows for easy adjustment of flight characteristics through the configuration parameters, making it straightforward to tune the model for different aircraft types or desired handling qualities.
