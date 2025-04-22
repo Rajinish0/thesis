@@ -2,6 +2,7 @@
 \label{ch:impl}
 
 \section{Building the code}
+\label{sec:building_code}
 
 There are currently two ways of building the code on Windows OS either with Visual Studio and using \textbf{vcpkg} as the package manager or with \textbf{MinGW} and manually building the packages (which I have deprecated but it's possible and I have put it in a separate branch).
 
@@ -370,7 +371,7 @@ As Figure~\ref{fig:normal_eg} shows we can calculate the normal at vertex \textb
 \end{figure}
 
 
-However, vertex \textbf{A} is in multiple triangles. Figure~\ref{fig:normal_calc} shows my approach for calculating the normals. I all the 6 faces (triangles) that \textbf{A} is a part of. Let's call the neighboring vertices of A in the above picture $\mathbf{N_0}...\mathbf{N_5}$ in either counterclockwise or clockwise ordering (depending on which way defines the vectors in the up direction -- this needs to be checked empirically). Then the normal vector can be calculated as follows:
+However, vertex \textbf{A} is in multiple triangles. Figure~\ref{fig:normal_calc} shows my approach for calculating the normals. I take all the 6 faces (triangles) that vertex \textbf{A} is a part of. Let's call the neighboring vertices of A $\mathbf{N_0}...\mathbf{N_5}$ in either counterclockwise or clockwise ordering (depending on which way defines the cross products in the up direction -- this needs to be checked empirically). Then the normal vector can be calculated as follows:
 \[
 \vec{n} = \frac{1}{6}\sum_{i=0}^{i=5}{(\mathbf{N_i}-\mathbf{A}) \times (\mathbf{N_{(i+1) \bmod 6}} - \mathbf{A})}
 \]
@@ -1402,3 +1403,146 @@ applyRelativeTorque(glm::vec3(
 \end{lstlisting}
 
 The simplicity of this approach allows for easy adjustment of flight characteristics through the configuration parameters, making it straightforward to tune the model for different aircraft types or desired handling qualities.
+
+
+\section{Testing}
+
+\subsection{Building with CMake}
+Building with instructions specified in Section~\ref{sec:building_code} does not automatically build tests too. The testing component was seperated for a faster build time.
+
+
+The instructions specified in Section~\ref{sec:building_code} must be followed as the first step for getting the dependencies then the project with tests can be built with CMake either by running the \texttt{build\_with\_tests.ps1} script (if your vckpg is located in "C:/vckpg") or by doing the following in the shell:
+\lstset{caption={Building with CMake}, label=src:sh}
+\begin{lstlisting}[language=bash]
+mkdir build
+cd build
+cmake .. -G "Visual Studio 17 2022" -A x64 -DCMAKE_TOOLCHAIN_FILE=%PATH_TO_VCPKG%/scripts/buildsystems/vcpkg.cmake -DBUILD_TESTS=TRUE
+\end{lstlisting}
+
+In other words, you can build tests by setting the \texttt{BUILD\_TESTS} flag to true in CMake.
+
+\subsection{Running the tests}
+The tests can be run on Visual Studio by navigatings to \texttt{Test}>\texttt{Test Explorer} and clicking on \textbf{Run All Tests In View}. This first builds the code and then discovers the tests, if it does not automatically run the tests navigate to \texttt{Test} and click on \textbf{Run All tests}. The result should look like something show in the figure~\ref{fig:test_results} below.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\textwidth]{images/test_results.png}
+    \caption{Running the tests in Visual Studio}
+    \label{fig:test_results}
+\end{figure}
+
+\subsection{Testing Plan}
+
+I decided to use \texttt{Google Test (gtest)} as the testing library because of wide support and easy integration. It's available through vckpg and is installed through the \texttt{install\_dependencies.ps1} script.
+
+The tests are a mixture of unit and integration tests. The components that do not depend on anything else such as LRUCache, PerlinNoise, RigidBody are tested in the style of unit tests. The other components that depend on OpenGL context to be initialized could have followed a similar style, however, for that a lot of classes would have needed be mocked which would have required an implementation of interfaces causing a change to the design of the project. Instead, these tests are done as a hybrid of unit and integration tests and as I'll explain below for the tests that require an OpenGL context, an empty context is built.
+
+\subsection{Unit Tests}
+\subsubsection{LRUcache}
+LRUCache is an independent component and the following tests were done on it: 
+\begin{itemize}
+    \item Basic insertion and retrieval functionality
+    \item Proper implementation of the LRU eviction policy
+    \item Update of access order when elements are accessed
+    \item Value overwriting behavior
+    \item Size tracking accuracy
+    \item Consistent behavior under repeated access patterns
+    \item Performance under high-volume operations
+\end{itemize}
+
+\subsubsection{Perlin Noise}
+The following tests were done for perlin noise:
+\begin{itemize}
+    \item Consistency: Identical inputs should produce identical outputs
+    \item Distinction: Different inputs should produce different outputs
+    \item FBM correctness: The multi-octave implementation should match the mathematical definition
+\end{itemize}
+
+\subsubsection{Rigid Body}
+Following tests were done for rigid body:
+\begin{itemize}
+    \item Linear movement in response to forces
+    \item Damping effects on velocity
+    \item Rotation in response to torque
+    \item Combined movement from off-center forces
+    \item Local vs. global coordinate force application
+    \item Orientation normalization under continuous rotation
+\end{itemize}
+
+\subsubsection{Camera}
+The following tests were implemented for the \texttt{Camera} component:
+\begin{itemize}
+    \item Initialization: Verifies that a new camera instance is oriented toward the negative Z-axis by default.
+    \item Yaw rotation: Confirms that changes in yaw correctly update the front direction vector, including wraparound behavior beyond 360\textdegree.
+    \item Pitch clamping: Ensures that pitch values are clamped within a safe range to prevent gimbal lock or distortion.
+    \item Movement handling: Tests the camera's response to directional movement commands, updating its position accordingly.
+    \item Mouse input: Checks that mouse movement results in correct and scaled yaw/pitch adjustments, respecting sensitivity settings.
+    \item View matrix generation: Validates that the generated view matrix is not an identity matrix and reflects the camera's orientation and position.
+    \item Directional consistency: Ensures the front vector used for rendering aligns with the forward direction inferred from the view matrix.
+\end{itemize}
+
+
+\subsection{integration Tests}
+
+The ability to set up an empty context is defined in \texttt{"tests/include/empty\_context.h"}. The class \texttt{EmptyContext} initializes an empty OpenGL context so that the OpenGL functions do not break. Note that these tests will use extra resources. The following code snippet shows how a class MyTest which wants an empty context for its tests can benefit from the EmptyContext.
+
+\begin{lstlisting}[language=C++]
+#include <gtest/gtest.h>
+#include "empty_context.h"
+
+class MyTest : public EmptyContext {}
+
+TEST_F(MyTest, TestSomething)
+{
+    //OPENGL CALLS WORK HERE
+}
+
+\end{lstlisting}
+
+
+\subsubsection{Shader}
+The following tests were conducted to verify the correctness and stability of the \texttt{Shader} class:
+\begin{itemize}
+    \item File loading: Verifies that the shader source loader reads the contents of a file correctly.
+    \item Shader compilation failure: Ensures that invalid GLSL code fails to compile, with proper error checking.
+    \item Shader program linking: Tests successful compilation and linking of a shader program, and validates uniform location queries.
+    \item Error handling on missing files: Confirms that constructing a shader with nonexistent files raises a runtime error.
+    \item Geometry shader support: Checks that a program including a geometry shader compiles and links without error.
+    \item Uniform setting: Ensures that the API for setting various uniform types (float, int, bool, vectors) executes without throwing.
+    \item Resource cleanup: Validates that shader program resources are properly released upon destruction.
+\end{itemize}
+
+
+\subsubsection{Airplane}
+The following integration tests were performed on the \texttt{Airplane} class. These tests depend on an OpenGL context and a mock audio subsystem, and validate behavior that spans both simulation and system-level resource handling:
+\begin{itemize}
+    \item Initialization defaults: Verifies that an airplane instance starts with expected physical force settings and triggers looping aircraft sound playback.
+    \item Package drop: Simulates a parachute drop event and checks that a packet is created and the appropriate audio cue is played.
+    \item Drop cooldown: Confirms that drop actions respect an internal cooldown timer, preventing multiple packets from being spawned in rapid succession.
+\end{itemize}
+
+
+\subsubsection{Endless Terrain}
+The terrain generation and chunk system were validated using a mix of functional and integration-style tests. These focus on correctness, consistency across chunk boundaries, and asynchronous data handling:
+\begin{itemize}
+    \item Chunk data correctness: Each generated chunk was validated to contain the correct number of height-normal vectors, with heights in \([-1,1]\) and normalized values mapped to \([0,1]\).
+    \item HeightMapWrapper integration: Verified that height data is correctly received and flagged as ready after asynchronous terrain generation completes.
+    \item Chunk alignment (horizontal): Ensured seamless terrain transitions between adjacent horizontal chunks by comparing edge heights and normals.
+    \item Chunk alignment (vertical): Similarly validated the vertical edges of adjacent chunks to prevent seams or mismatches in the visual terrain.
+\end{itemize}
+
+\subsubsection{FrameBuffer}
+The following tests were performed for the FrameBuffer class:
+\begin{itemize}
+    \item Check FrameBuffer initializes correctly.
+    \item Check FrameBuffer is complete after init.
+    \item Check clearColor works correctly.
+\end{itemize}
+
+\subsection{Other Visual Tests}
+Other components like Mesh, Model, and the Cloud System don't have methods that can be checked viably, correct loading of a Model implicitly verifies the correctness of Mesh so both Model and Mesh were checked by loading actualy models into the scene. Mesh, itself, can be tested by generating custom meshes and drawing them on the screen; as mentioned before, \texttt{funcs} namespace provides functions for building a mesh for sphere and torus which can be drawn on the screen to see if the Mesh class behaves as expected.
+
+The same goes for the cloud system: most of its core functionality is in shaders which cannot be tested externally and the only way to test is to play the game and see how the clouds look.
+
+\subsection{Test Results}
+Some tests mentioned above failed initially which revelead previously unknown bugs in the code; however, after fixing those all tests were successful.
