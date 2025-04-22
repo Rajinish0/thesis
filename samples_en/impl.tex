@@ -370,11 +370,11 @@ As Figure~\ref{fig:normal_eg} shows we can calculate the normal at vertex \textb
 \end{figure}
 
 
-However, vertex \textbf{A} is in multiple triangles. Figure~\ref{fig:normal_calc} shows my approach for calculating the normals. I take the 4 vertices around \textbf{A} let's call them $\mathbf{a_0}...\mathbf{a_3}$ in either counterclockwise or clockwise ordering (depending on which way defines the vectors in the up direction). Then the normal vector can be calculated as follows:
+However, vertex \textbf{A} is in multiple triangles. Figure~\ref{fig:normal_calc} shows my approach for calculating the normals. I all the 6 faces (triangles) that \textbf{A} is a part of. Let's call the neighboring vertices of A in the above picture $\mathbf{N_0}...\mathbf{N_5}$ in either counterclockwise or clockwise ordering (depending on which way defines the vectors in the up direction -- this needs to be checked empirically). Then the normal vector can be calculated as follows:
 \[
-\vec{n} = \frac{1}{4}\sum_{i=0}^{i=3}{(\mathbf{a_i}-\mathbf{A}) \times (\mathbf{a_{(i+1) \bmod 4}} - \mathbf{A})}
+\vec{n} = \frac{1}{6}\sum_{i=0}^{i=5}{(\mathbf{N_i}-\mathbf{A}) \times (\mathbf{N_{(i+1) \bmod 6}} - \mathbf{A})}
 \]
-Which is the average of the the normal vectors for each of the 4 triangles. For this to work correctly, you must ensure the vertices are in the correct ordering.
+Which is the average of the the normal vectors for each of the 6 triangles. For this to work correctly, you must ensure the vertices are in the correct ordering.
 
 As the picture above suggests, this breaks down at the edges of the mesh. To circumvent this issue, I pad the mesh with extra set of vertices that is used just for the calculation of normals.
 
@@ -395,9 +395,9 @@ def generateChunkData(size, scale):
 			vs = getNeighbors(i, j) //should return list of 4  neighbors in the correct order
 			vertex = Vector(i, heightData[i, j] ,j)
 			normal = Vector(0, 0, 0)
-			for k in range(4):
+			for k in range(6):
 				a = vs[k]
-				b = vs[(k + 1) % 4]
+				b = vs[(k + 1) % 6]
 				normal += cross(a-vertex, b-vertex)
 			mag = normal.magnitude()
 			if mag != 0:
