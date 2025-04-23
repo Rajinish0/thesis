@@ -11,12 +11,12 @@ This thesis explores the implementation of real-time procedural terrain generati
 
 Procedural content generation enables infinite, non-repeating environments without the need for handcrafted assets. Volumetric clouds further enhance immersion by simulating complex atmospheric phenomena. Together, these systems form the foundation of a lightweight, yet visually rich virtual world.
 
-The main inspirations for this work come from Sebastian Lague's development series \cite{sebestianlague2019} and community shaders such as those found on Shadertoy \cite{shadertoy2013}. However, unlike these examples — which either depend on high-level engines or focus on isolated effects — this project aims to build everything from scratch, including the rendering pipeline, asset management, and interaction systems.
+The main inspirations for this work come from Sebastian Lague's development series \cite{sebestianlague2019} and community shaders such as those found on Shadertoy \cite{shadertoy2013} \cite{reinder2018}. However, unlike these examples — which either depend on high-level engines or focus on isolated effects — this project aims to build everything from scratch, including the rendering pipeline, asset management, and interaction systems.
 
 Following conventions are used throughout the document:
 
 \begin{itemize}[noitemsep, topsep=0pt]
-    \item \textbf{Vector:} $\vec{x}$
+    \item \textbf{Vector:} $\vec{x} = \langle a, b, ... \rangle$
     \item \textbf{Unit Vector:} $\hat{x}$
     \item \textbf{Length of a vector}: $\|\vec{x}\|$
     \item \textbf{A point}: $\textbf{x}$
@@ -24,4 +24,6 @@ Following conventions are used throughout the document:
     \item \textbf{Dot product of two vectors}: 
     $ \vec{a} \cdot \vec{b} $ or 
     $ \langle \vec{a}, \vec{b} \rangle $
+    \item \textbf{Cross product of two vectors}:
+    $ \vec{a} \times \vec{b} $
 \end{itemize}

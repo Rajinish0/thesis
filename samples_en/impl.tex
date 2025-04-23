@@ -204,7 +204,6 @@ A simple example is provided below:
 \lstset{caption={Frame Buffer example}, label=src:frame_buffer}
 \begin{lstlisting}[language={C++}]
 #include <framebuffer.h>
-#include <iostream>
 
 int main() 
 {
@@ -225,6 +224,51 @@ int main()
     frameBuffer.draw(); 
 }
 \end{lstlisting}
+
+
+\subsection{Text And Sprite Renderers}
+The engine provides classes for text and sprite renderers which are both used for drawing 2d objects on the screen. Text renderer technically just draws a rectangle with blending enabled and draws text on the rectangle as a texture. Sprite renderer can be used for drawing 2d pictures on the screen. There are 2 ways of doing both of these drawings in 3D, one is to either place the 2D rectangles of these renderers always in front of the camera so they look like they are on the screen. The other simpler way is to use \textbf{Orthographic} projection instead of \textbf{Perspective} projection as the projection matrix and then draw as you normally would on a 2D screen. This second approach is what's followed in the code, however, you can follow the first approach by just changing the projection matrix. The following code snippet shows the usage of the two classes.
+
+The sprite renderer class also comes with a \texttt{Sprite} class and all the 2D sprites must be loaded using this class -- this avoid reloading the sprites unnecessarily.
+
+\lstset{caption={Frame Buffer example}, label=src:text_and_sprite}
+\begin{lstlisting}[language={C++}]
+#include <sprite_renderer.h>
+#include <textrender.h>
+#include <shader.h>
+/*other opengl, glm includes*/
+
+int main() 
+{
+    TextRenderer textRenderer;
+    SpriteRenderer spriteRenderer;
+
+    glm::mat4 proj = /*define orthographic proj*/
+
+    Shader textShader {/*sources to text vertex and frag shaders*/};
+    Shader spriteShader {/*sources to sprite vertex and frag shaders*/};
+
+    textShader.setMatrix("proj", proj);
+    spriteShader.setMatrix("proj", proj);
+
+    textRenderer.renderText(textShader, "some text", 
+	/*x*/ 0.0, /*y*/ 0.0, /*scale*/ 1.0f, 	
+    /*color*/ glm::vec3(1.0f, 0.0f, 0.0f) , 
+    /*Mode*/ TextRenderer::TOP_LEFT);
+
+    //this comes from sprite_renderer
+    Sprite mySprite {/* source file */ "someFile.png", 
+                     /*size*/ = 1.0f, /*rotation*/ = 0.0f, 
+                     /*pulsating*/ = false};
+
+    spriteRenderer.draw(
+        mySprite, spriteShader, glm::vec3(0.0f)
+    );
+
+}
+\end{lstlisting}
+
+The mode in \texttt{TextRenderer::renderText} specifies which corner of the rectangle that the text is going to be drawn on are the x, y coordinates referring to; there are five options for this: one for each of the corners, and one for the center. \texttt{SpriteRenderer::draw} also accepts rotation and mode as optional arguments. You can also optionally initialize the text renderer with a different font, the default one is Arial.
 
 
 \subsection{Architecture}
@@ -316,9 +360,9 @@ Perlin noise works by dividing the plane into a grid, assigning a random gradien
 
 Let $U = (U_x, U_y)$ be a point inside the cell, and let $(u, v)$ be the fractional parts of $(U_x, U_y)$ relative to the cell.
 
-Define direction vectors from each corner to $U$:
+Define direction vectors from $U$ to each corner:
 \[
-\vec{d_{tl}} = U - P_{tl}, \quad \vec{d_{tr}} = U - P_{tr}, \quad \vec{d_{bl}} = U - P_{bl}, \quad \vec{d_{br}} = U - P_{br}
+\vec{d_{tl}} = P_{tl} - U, \quad \vec{d_{tr}} = P_{tr} - U, \quad \vec{d_{bl}} = P_{bl} - U, \quad \vec{d_{br}} = P_{br} - U
 \]
 
 Next, compute the dot products:
@@ -335,6 +379,8 @@ Finally, the noise value at point $U$ is computed using bilinear interpolation:
 \[
 \texttt{noise}(U_x, U_y) = \texttt{lerp}(\texttt{lerp}(G_{tl}, G_{tr}, g(u)), \texttt{lerp}(G_{bl}, G_{br}, g(u)), g(v))
 \]
+
+The \texttt{Perlin2d} class in the engine provides an efficient implementation of the functionality described above. It also does Fractional Brownian Motion which is described in Section~\ref{sec:fbm}.
 
 \subsection{Calculating normals}
 In general, given a parametric surface $f(u, v)$ it is possible to obtain surface normal at specific points by the following formula: 
@@ -509,7 +555,7 @@ Notice that the methods above issue generate and draw commands for chunks that a
 
 
 \section{Volumetric Clouds}
-This section explains my implementation of volumetric clouds. Before delving into the details, I would like to acknowledge the resources that were instrumental in my work and would like to thank the online community: \cite{sebestianlague2019} \cite{shadertoy2013} \cite{guerrillagames2025nubis} \cite{reinder2018} \cite{fredrik} \cite{gamedevnet2015horizonzerodawn} \cite{palenik2016volumetricclouds} \cite{maxime2023} \cite{engel2016gpupro7}.
+This section explains my implementation of volumetric clouds. Before delving into the details, I would like to acknowledge the resources that were instrumental in my work and thank the online community: \cite{sebestianlague2019} \cite{shadertoy2013} \cite{guerrillagames2025nubis} \cite{reinder2018} \cite{fredrik} \cite{gamedevnet2015horizonzerodawn} \cite{palenik2016volumetricclouds} \cite{maxime2023} \cite{engel2016gpupro7}.
 \subsection{Ray Marching}
 
 Before rendering clouds, it's essential to understand the basics of ray marching. Ray marching is a technique where we trace rays for each pixel on the screen. Unlike ray tracing, which requires information about polygonal geometry, ray marching only requires access to a signed distance function ($\text{sdf}$). 
@@ -717,6 +763,7 @@ def get_color(x, y):
 
 All textures used in the game were pre generated using Python and the corresponding code can found can be found in the \textbf{\texttt{noise\_scripts}} subdirectory.
 \subsection{Fractional Brownian Motion}
+\label{sec:fbm}
 Nearly all noise functions used in procedural generation benefit from a technique called \textbf{Fractional Brownian Motion} (fBM). It enhances basic noise by layering multiple octaves—copies of the noise function with increasing frequency and decreasing amplitude—to produce a more complex, self-similar structure reminiscent of fractals. This gives a more natural, detailed appearance when zoomed in.
 
 The following code shows a typical fBM implementation:
@@ -1486,6 +1533,7 @@ The following tests were implemented for the \texttt{Camera} component:
 
 The ability to set up an empty context is defined in \texttt{"tests/include/empty\_context.h"}. The class \texttt{EmptyContext} initializes an empty OpenGL context so that the OpenGL functions do not break. Note that these tests will use extra resources. The following code snippet shows how a class MyTest which wants an empty context for its tests can benefit from the EmptyContext.
 
+\lstset{caption={Testing with Empty Context Example}}
 \begin{lstlisting}[language=C++]
 #include <gtest/gtest.h>
 #include "empty_context.h"
@@ -1539,8 +1587,32 @@ The following tests were performed for the FrameBuffer class:
     \item Check clearColor works correctly.
 \end{itemize}
 
+\subsubsection{Mesh}
+As explain below in Section~\ref{sec:viz_tests} not a lot of concrete tests can be performed on the Mesh class but the following tests were done to check correctness of some functions:
+\begin{itemize}
+    \item Check invalid texture type throws error on draw.
+    \item Check move operator works correctly.
+\end{itemize}
+
+\subsubsection{Text Renderer}
+The following tests were done for text renderer, other tests were done by drawing actual text onto the screen.
+\begin{itemize}
+    \item Non existant font throws error
+    \item Adding characters to storage doesn't crash and is successful
+    \item Drawing for different modes doesn't crash
+    \item Rendering long text does not crash
+\end{itemize}
+
+\subsubsection{Sprite Renderer}
+Most tests were done by actually drawinig sprites onto the screen, however, there are following tests in the suite for the \texttt{Sprite} class:
+\begin{itemize}
+    \item \texttt{getRotationMatrix} returns the correct matrix
+    \item \texttt{getRotationMatrix} returns the correct matrix after size is changed
+\end{itemize}
+
 \subsection{Other Visual Tests}
-Other components like Mesh, Model, and the Cloud System don't have methods that can be checked viably, correct loading of a Model implicitly verifies the correctness of Mesh so both Model and Mesh were checked by loading actualy models into the scene. Mesh, itself, can be tested by generating custom meshes and drawing them on the screen; as mentioned before, \texttt{funcs} namespace provides functions for building a mesh for sphere and torus which can be drawn on the screen to see if the Mesh class behaves as expected.
+\label{sec:viz_tests}
+Components like Mesh, Model, and the Cloud System don't have methods that can be checked viably, correct loading of a Model implicitly verifies the correctness of Mesh so both Model and Mesh were checked by loading actualy models into the scene. Mesh, itself, can be tested by generating custom meshes and drawing them on the screen; as mentioned before, \texttt{funcs} namespace provides functions for building a mesh for sphere and torus which can be drawn on the screen to see if the Mesh class behaves as expected.
 
 The same goes for the cloud system: most of its core functionality is in shaders which cannot be tested externally and the only way to test is to play the game and see how the clouds look.
 
