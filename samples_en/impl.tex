@@ -43,7 +43,7 @@ This sections describes how the components fit together and in what order the th
 
 First let's look at the OpenGL rendering pipeline in Figure~\ref{fig:opengl_pipeline}. The only procedures that we are concerned with at the moment are Vertex and Fragment shaders. Geometry shaders will be described at a later stage when they are needed.
 
-\begin{definition}{Shaders}
+\begin{definition}[Shaders]
 	Shaders are programs that run on the GPU, there are various ways to send data to shaders. In the code, I mainly send data through vertex buffers or through uniforms. 
 \end{definition}
 
@@ -65,7 +65,7 @@ void main() {
 
 \end{lstlisting}
 
-In this document, I will be representing the projection matrix as $\mathbf{P}$, view as $\mathbf{V}$, and model as $\mathbf{M}$. In some vertex shaders there is also a local transformation matrix because I sometimes like to dissect the model matrix into two matrices the model and the local matrix, the former puts the object into the world space and the local transformation is responsible for any rotation or scaling.
+In this document, I will be representing the projection matrix as $\mathbf{P}$, view as $\mathbf{V}$, and model as $\mathbf{M}$. In some vertex shaders there is also a local transformation matrix because I sometimes prefer to dissect the model matrix into two matrices the model and the local matrix, the former puts the object into the world space and the local transformation is responsible for any rotation or scaling.
 
 \subsection{Shader loader}
 To make it easier to load, compile and use shaders the engine comes with a Shader loading
@@ -81,7 +81,7 @@ myShader.setVec3("cameraPos", glm::vec3(0.0f));
 
 \subsection{Mesh handling}
 \label{subsec:mesh_handling}
-In OpenGL the mesh data must be transferred to a \textbf{VBO (Vertex Buffer Object)} first and then the \textbf{VBO} must be bound to a \textbf{VAO (Vertex Array Object)}, instructions for how to parse the data in \textbf{VBO} must also be explicitly defined and optionally a drawing order of vertices can also be defined in a \textbf{EBO (Element Buffer Object)}. To make this simpler a \textbf{Mesh} class comes with the engine. This is also inspired by an implementation on LearnOpenGL \cite{learnopengl}. The figure below gives a rough UML of how the mesh class is structured.
+In OpenGL the mesh data must be transferred to a \textbf{VBO (Vertex Buffer Object)} first and the \textbf{VBO} must be bound to a \textbf{VAO (Vertex Array Object)}, instructions for how to parse the data in \textbf{VBO} must also be explicitly defined and optionally a drawing order of vertices can also be defined in a \textbf{EBO (Element Buffer Object)}. To make this simpler a \textbf{Mesh} class comes with the engine. This is also inspired by an implementation on LearnOpenGL \cite{learnopengl}. The figure below gives a rough UML of how the mesh class is structured.
 
 \begin{figure}[H]
     \centering
@@ -229,9 +229,9 @@ int main()
 \subsection{Text And Sprite Renderers}
 The engine provides classes for text and sprite renderers which are both used for drawing 2d objects on the screen. Text renderer technically just draws a rectangle with blending enabled and draws text on the rectangle as a texture. Sprite renderer can be used for drawing 2d pictures on the screen. There are 2 ways of doing both of these drawings in 3D, one is to either place the 2D rectangles of these renderers always in front of the camera so they look like they are on the screen. The other simpler way is to use \textbf{Orthographic} projection instead of \textbf{Perspective} projection as the projection matrix and then draw as you normally would on a 2D screen. This second approach is what's followed in the code, however, you can follow the first approach by just changing the projection matrix. The following code snippet shows the usage of the two classes.
 
-The sprite renderer class also comes with a \texttt{Sprite} class and all the 2D sprites must be loaded using this class -- this avoid reloading the sprites unnecessarily.
+The sprite renderer class also comes with a \texttt{Sprite} class and all the 2D sprites must be loaded using this class -- this avoids reloading the sprites unnecessarily.
 
-\lstset{caption={Frame Buffer example}, label=src:text_and_sprite}
+\lstset{caption={Text and sprite renderer example}, label=src:text_and_sprite}
 \begin{lstlisting}[language={C++}]
 #include <sprite_renderer.h>
 #include <textrender.h>
@@ -601,9 +601,7 @@ vec3 trace(Ray r) // returns light info
         currentPos = r.pos + r.direction * totalDistTraveled;
         float dist = sdf_world(currentPos);
 
-        if (dist < 0) break;
-
-        else if (dist < MIN_DIST) {
+        if (dist < MIN_DIST) {
             // do light calculation
             return /* light info */;
         }
@@ -648,7 +646,7 @@ This normal vector is then used in lighting calculations.\footnote{This reasonin
 
 \subsection{Ray Marching for rendering volumes}
 For rendering volumetric surfaces like clouds instead of using $sdf$ functions a fixed step size $\delta$ is chosen and the ray is moved forward by this step size at each step. At each point $P$ in space density is sampled and the rendering is done based on how much density was observed, how much light passed through and so on. More details are in the following section but first for clouds my implementation makes a rectangular area in the sky where the clouds can be, this is a axis aligned bounding box (AABB). First, a check is done to see if the ray intersects this box; if yes, only then is the ray marched through the box.
-Next, we derive the intersection of a ray with AABB. Remember that a ray is given as $R(T) = P + \vec{d}t$. An axis aligned box can be defined by its top left coordinates and bottom right coordinates denoted as $b_{min}$, $b_{max}$.
+Next, we derive the intersection of a ray with an AABB. Remember that a ray is given as $R(t) = P + \vec{d}t$. An axis aligned bounding box can be defined by its minimum and maximum coordinates denoted as $b_{min}$, $b_{max}$. The ray will intersect the box if:
 \[
 b_{min} \le P + \vec{d}t \le b_{max}
 \]
@@ -795,7 +793,7 @@ Imagine a plot of a signal, the code above adds higher and higher frequency valu
 \subsection{Perlin Worley Noise}
 The inverted Worley noise is combined with Perlin noise to add detail to the low-density regions of Perlin noise, creating textures that result in puffier-looking clouds—a technique originating from Guerrilla Games \cite{guerrillagames2025nubis}. Before presenting the formula used to combine the two types of noise, we first define the remap function.
 \begin{definition}[Remap function]
-    \[\texttt{Remap}(a, old\_min, old\_max, new\_min, new\_max) =\]
+    \[\texttt{remap}(a, old\_min, old\_max, new\_min, new\_max) =\]
     \[new\_min + 
     (new\_max - new\_min)\frac{a-old\_min}{old\_max - old\_min}\]
 \end{definition}
@@ -969,7 +967,7 @@ If $b$ is the starting point then:
 L(a, \vec{w}) = e^{-\int_{b}^{a}{p(x)dx}}\int_b^{a}{e^{\int_x^{a}{p(t)dt}}q(x)dx} + Ce^{-\int_b^{a}{p(x)dx}}
 \]
 
-Where $C = L_b = L(b, \vec{w})$. $L_b$ represents the incoming light intensity at the starting point $b$ — for instance, this may be the background color or sky light depending on your implementation.
+Where $C = L_b = L(b, \vec{w})$. $L_b$ represents the incoming light intensity at the starting point $b$ — for instance, this may be the background color or sky light depending on the implementation.
 
 \[
 L(a, \vec{w}) = e^{-\int_{b}^{a}{p(x)dx}}\int_b^{a}{e^{\int_x^{a}{p(t)dt}}q(x)dx} + L_be^{-\int_b^{a}{p(x)dx}}
@@ -1005,10 +1003,10 @@ which is the same as above but we are integrating $\tau$ in the forward directio
 As noted in \cite{palenik2016volumetricclouds}, the exact form of $L_i$ is the integral of light scattering from all directions (To be precise, this is a surface integral of probability of light scattering times the distribution in which the light scatters in given directions times the intensity of light): 
 
 \[
-    L_i(x, \vec{w}) = \frac{1}{4\pi}\int\sigma(x, \vec{w})\tilde{p}(x, w, w')I(x, w, w')d\Omega'
+    L_i(x, \vec{w}) = \frac{1}{4\pi}\oint\sigma(x, \vec{w})\tilde{p}(x, w, w')I(x, w, w')d\Omega'
 \]
 
-Where $\tilde{p}$ is called the phase function which gives a distribution of redirection of light. Most implementations use the Henyey–Greenstein phase function to model the scattering directionality, which depends on the cosine of the angle between the incoming light direction $\vec{w}_{sun}$ and the viewing direction $\vec{w}$. The exact formula is omitted here as it does not provide significant insight, but it is implemented in the code and widely documented in the literature.
+Where $\tilde{p}$ is called the phase function which gives a distribution of redirection of light. Most implementations use the Henyey–Greenstein phase function to model the scattering directionality, which depends on the cosine of the angle between the incoming light direction $\vec{w}_{sun}$ and the viewing direction $\vec{w}$. The exact formula is omitted here as it does not provide significant insight, but it is implemented in the code and widely documented in the literature and for further mentions of it we are going represent it as $\tilde{p}(\vec{w}, \vec{w}_{sun})$.
 
 Now we make some simplifications to evaluate this numerically and let's say $\rho(x)$ is the density at point $x$: \cite{palenik2016volumetricclouds}
 \begin{itemize}
@@ -1045,9 +1043,43 @@ T_i = \sum_{j=0}^{i}\sigma\Delta{x}\rho_j
 \]
 And, 
 \[
-T_i' = \sigma\Delta{s}\sum_{j=1}^{k}\rho(x + \vec{w}_{sun}j\Delta{s})
+T_i' = \sigma\Delta{s}\sum_{j=1}^{k}\rho(\mathbf{x_i} + \vec{w}_{sun}j\Delta{s})
 \]
-which is accumulating the density towards the sun, and in practice $k$ is around 6 as mentioned in \cite{guerrillagames2025nubis}.
+which is accumulating the density towards the sun, and in practice $k$ is around 6 as mentioned in \cite{guerrillagames2025nubis}. It is more useful to write these equations in a recursive format which is especially useful for programming them. The conventions are obtained from \cite{palenik2016volumetricclouds}.
+
+The illumination from sun can be written as (this is the $e^{-T_i'}$ part of the above equation):
+\[
+\mathcal{I}(\mathbf{x_i}) = \mathcal{I}_i = e^{-\sigma\Delta{s}\sum_{j=1}^{k}\rho(\mathbf{x_i} + \vec{w}_{sun}j\Delta{s})}
+\]
+
+The other part of the sum ($e^{-T_i}$) can be written as (this is called the extinction factor):
+\[
+\mathcal{E}_n = e^{-\sigma\Delta{x}\sum_{j=0}^{n}{\rho_j}} = \prod_{j=0}^{n}{e^{-\sigma\Delta{x}\rho_j}}
+\]
+
+Giving the recurrence:
+\[
+\mathcal{E}_0 = 1
+\]
+\[
+\mathcal{E}_n = e^{-\sigma\Delta{x}\rho_j}\mathcal{E}_{n-1}
+\]
+
+The second part of the sum for $L$ can now be written as $C_n = \sigma\tilde{p}\Delta{x}\sum_{i=0}^{n}{\mathcal{E}_i}\rho_i\mathcal{I}_i$ 
+
+Giving the recurrence:
+\[
+C_0 = 0
+\]
+\[
+C_n = \sigma\tilde{p}\Delta{x}\mathcal{E}_n\rho_n\mathcal{I}_i + C_{n-1}
+\]
+
+Giving the equation:
+\[
+L = L_b\mathcal{E}_N + C_N
+\]
+
 
 \subsection{The Complete Pipeline}
 The terrain is rendered first to a framebuffer object (FBO). The cloud rendering pipeline then uses the textures from this FBO as input, layering volumetric clouds on top of the scene — a process commonly known as deferred shading.
@@ -1077,7 +1109,7 @@ The figures below show the clouds enclosed within their bounding volume, from bo
 This section explains my implementation of rigid body and the \texttt{airplane} class with some physics background.
 
 \subsection{Basics}
-Given $x(t)$ the position of an object at time t, the velocity is defined as the first derivative of this $v(t) = \dot{x} = \frac{dx}{dt}$ and the acceleration is the derivative of velocity so, $a(t) = \dot{v} = \frac{d^2x}{dt^2}$. We can get position by integrating acceleration as follows: $x = x_0 + v_0t + \frac{a}{2}t^2$. In the code, the rigid body stores the position and the velocity of the body and the updates are performed using euler integration:
+Given $x(t)$ the position of an object at time t, the velocity is defined as the first derivative of this $v(t) = \dot{x} = \frac{dx}{dt}$ and the acceleration is the derivative of velocity so, $a(t) = \dot{v} = \frac{d^2x}{dt^2}$. We can get position by integrating acceleration as follows: $x = x_0 + v_0t + \frac{a}{2}t^2$. In the code, the rigid body stores the position and the velocity of the body and the updates are performed using Euler integration:
 
 \begin{equation}
 \label{eq:vel_update}
@@ -1198,10 +1230,10 @@ This acceleration is then used with equations~\ref{eq:vel_update} and \ref{eq:po
 
 To understand rotational motion take the figure above and imagine the particle is at coordinates $(x, y)$ and is rotated by angle $d\theta$ because of some force. From the picture above it can be seen that $dx = -rd\theta\sin\theta = -rd\theta\frac{y}{r} = -yd\theta$. Similarly, $dy = xd\theta$. From this we get:
 \[
-\frac{dx}{dt} = v_x = -y\frac{d\theta}{dt} = -y\omega
+v_x = \frac{dx}{dt} = -y\frac{d\theta}{dt} = -y\omega
 \]
 \[
-\frac{dy}{dt} = v_y =  x\frac{d\theta}{dt} = x\omega
+v_y = \frac{dy}{dt} = x\frac{d\theta}{dt} = x\omega
 \]
 
 Where $\omega=\frac{d\theta}{dt}$ is called the angular velocity. Since $v = \sqrt{v_x^2 + v_y^2}$ is the tangential velocity, we get:
@@ -1288,7 +1320,7 @@ L = r \times p
 
 Where $I$ is called the inertia tensor. The off diagonal elements are non-intuitive but since this matrix is symmetric, we can diagonalize it so in the eigenbasis the inertia tensor is just a diagonal matrix.
 
-Similarly, torque can be written as:
+Similarly, torque can be written as \footnote{This is not the full equation, ideally we should use Euler's equation to get  $\tau = \frac{DL}{Dt} = \frac{d(L)}{dt} + \omega \times L = I\alpha + \omega \times I \omega$. However, this is more involved and for the sake of simplicity I decided to skip the second term by assuming the aircraft is a cube.}:
 \[ 
 \tau = I\alpha
 \]
@@ -1329,7 +1361,7 @@ However, this is not quite right, the inertia tensor is defined in the original 
 \[
 \alpha=RI^{-1}R^{-1}\tau
 \]
-Which can be thought of as follows: transform torque to the original coordinate system, apply inverse inertia tensor transformation, and transform it back to the rotated coordinate system. If $R$ is the matrix of eigenvectors of $I^{-1}$ \footnote{Or eigenvectors of $I$, since $I$ is a symmetric matrix the eigenvectors of $I$ and $I^{-1}$ are the same and the eigenvalues are reciprocals of each other}, then $RI^{-1}R^{-1}$ will be a diagonal matrix (note that $R$ is orthogonal). So, in this situation torque will be in the same direction as the angular acceleration but that is not usually the case.
+Which can be interpreted in the following way: transform torque to the original coordinate system, apply inverse inertia tensor transformation, and transform it back to the rotated coordinate system.
 
 If $q$ is the current orientation of the body given in quaternions then the updates are done as follows:
 
@@ -1342,7 +1374,7 @@ If $q$ is the current orientation of the body given in quaternions then the upda
 \label{eq:orient_update}
 q_{new} = q_{old} + \frac{\Delta{t}}{2}\dot{q}_{old}.q_{old}
 \end{equation}
-Where 
+Where the "$.$" represents quaternion multiplication and,
 \[
 \dot{q}=0+\dot{q}_xi+\dot{q}_yj+\dot{q}_zk
 \]
@@ -1367,7 +1399,7 @@ This is supposed to be used with other classes as this by itself has no physical
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/quaternion.hpp>
 
-void main(){
+int main(){
     RigidBody obj{/*mass*/ 1.0f, /*pos*/ glm::vec3(0.0f), 
                   /*orient*/ glm::quat(1.0f, 0.0f, 0.0f, 0.0f), 
                   /*inertia tensor*/ glm::mat3(1.0f)};
@@ -1429,7 +1461,7 @@ To simulate how real aircraft movements are coupled, additional effects are appr
 \end{equation}
 
 \begin{equation}
-\vec{\tau}_{induced\_pitch} = -|\text{roll}| \times 0.1
+\vec{\tau}_{induced\_pitch} = -|\text{roll}| \times \text{inducedPitchFactor}
 \end{equation}
 
 The induced yaw effect simulates the natural tendency of aircraft to yaw in the direction of roll, caused by differential drag on the wings. The induced pitch effect approximates the slight nose-down tendency when banking.
@@ -1445,7 +1477,7 @@ applyRelativeForce(glm::vec3(0.0f, 0.0f, -1.0f) * throttle * maxThrottle);
 applyRelativeTorque(glm::vec3(
     (pitch*(1-std::fabs(currentPitch)) + stabilizingPitch + inducedPitch) * pitchSpeed,
     (yaw + inducedYaw) * yawSpeed,
-    (roll*.75+stabilizingRoll*stabilizingRollFactor) * rollSpeed
+    (roll*rollFactor+stabilizingRoll*stabilizingRollFactor) * rollSpeed
 ));
 \end{lstlisting}
 
@@ -1480,7 +1512,7 @@ The tests can be run on Visual Studio by navigatings to \texttt{Test}>\texttt{Te
 
 \subsection{Testing Plan}
 
-I decided to use \texttt{Google Test (gtest)} as the testing library because of wide support and easy integration. It's available through vckpg and is installed through the \texttt{install\_dependencies.ps1} script.
+I decided to use \texttt{Google Test (gtest)} as the testing library because of its wide support and easy integration. It's available through vckpg and is installed through the \texttt{install\_dependencies.ps1} script.
 
 The tests are a mixture of unit and integration tests. The components that do not depend on anything else such as LRUCache, PerlinNoise, RigidBody are tested in the style of unit tests. The other components that depend on OpenGL context to be initialized could have followed a similar style, however, for that a lot of classes would have needed be mocked which would have required an implementation of interfaces causing a change to the design of the project. Instead, these tests are done as a hybrid of unit and integration tests and as I'll explain below for the tests that require an OpenGL context, an empty context is built.
 
@@ -1612,9 +1644,23 @@ Most tests were done by actually drawinig sprites onto the screen, however, ther
 
 \subsection{Other Visual Tests}
 \label{sec:viz_tests}
-Components like Mesh, Model, and the Cloud System don't have methods that can be checked viably, correct loading of a Model implicitly verifies the correctness of Mesh so both Model and Mesh were checked by loading actualy models into the scene. Mesh, itself, can be tested by generating custom meshes and drawing them on the screen; as mentioned before, \texttt{funcs} namespace provides functions for building a mesh for sphere and torus which can be drawn on the screen to see if the Mesh class behaves as expected.
+Components like Mesh, Model, and the Cloud System don't have methods that can be checked viably, correct loading of a Model implicitly verifies the correctness of Mesh so both Model and Mesh were checked by actually loading models into the scene. Mesh, itself, can be tested by generating custom meshes and drawing them on the screen; as mentioned before, \texttt{funcs} namespace provides functions for building a mesh for sphere and torus which can be drawn on the screen to see if the Mesh class behaves as expected.
 
 The same goes for the cloud system: most of its core functionality is in shaders which cannot be tested externally and the only way to test is to play the game and see how the clouds look.
 
 \subsection{Test Results}
 Some tests mentioned above failed initially which revelead previously unknown bugs in the code; however, after fixing those all tests were successful.
+
+\section{Further Improvements}
+
+\subsubsection{Visuals For Terrain} The visuals could be improved significantly. Currently, the terrain colors are based on a simple normal calculation and no textures are used. Mixing multiple textures based on terrain height usually produces better results, but because the color of the clouds already gives the mountains a snowy look, this approach required the least effort to make the environment look presentable. This still needs some tuning and I intend to work on it in the future.
+
+Another nice addition would be adding grass to the mountains, either with the use of billboards or with some modern sophisticated techniques.
+
+\subsubsection{Visuals For Clouds} The clouds could look much better if the noise textures used were hand-crafted. However, I am generating the weather texture maps using a combination of Perlin and Simplex noise, which is why the clouds don't really have an artistic look. Another thing I want to experiment with is using the Beer's-Powder effect \cite{guerrillagames2025nubis} for calculating the lighting of the clouds — as seen in the resources mentioned, this tends to produce much more detailed looking clouds.
+
+Other improvements could include using blue noise during raymarching to reduce banding effects, and curl noise to introduce turbulence into the shapes of the clouds.
+
+\subsubsection{Shadows} Shadows are an integral part of any realistic scene involving lights. However, they come at a performance cost, and because of that I did not experiment with them as part of this thesis. The realism of the current environment could be enhanced a lot by accurately modeling the shadows of the clouds on the terrain.
+
+\subsubsection{More Accurate Aircraft Dynamics} As mentioned previously, accurate modeling of an aircraft requires correctly simulating all the forces acting on it. Adding this feature to the game could open up possibilities of extending it into a combat game or a more realistic flight simulator.
