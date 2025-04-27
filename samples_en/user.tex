@@ -3,6 +3,7 @@
 
 To ensure optimal performance consistent with testing, the recommended hardware includes an Nvidia GeForce 3050 Ti (with a minimum of 4GB VRAM) and at least 8GB of system RAM. The game is distributed as a ZIP archive specifically for Windows; all necessary files are included, and the game can be launched directly by running the executable. For other operating systems, the game must be built from the provided source files.
 
+Windows does not automatically use the Nvidia graphics card when you run an OpenGL application. You need to manually configure this by navigating to System > Display > Graphics then browse for the game and choose high performance in graphics preference.
 
 \section{The goal of the game}
 
@@ -196,5 +197,45 @@ The first 7 configuration parameters (until \textbf{inducedYawFactor}) are for t
 		
 		\caption{Weather parameters}
 		\label{tab:weather_params}		
+	\end{longtable}
+\end{center}
+
+
+
+\begin{center}
+	\begin{longtable}{ | p{0.3\textwidth} | p{0.7\textwidth} | }
+		
+		\hline
+		\multicolumn{2}{|c|}{\textbf{Terrain Parameters}}
+		\\ \hline
+		
+		\emph{Parameter} & \emph{Description}
+		\\ \hline \hline
+		\endfirsthead % table header on first page
+		
+		\hline
+		\emph{Parameter} & \emph{Description}
+		\\ \hline \hline
+		\endhead % table header on further pages
+	
+		\hline
+		\endfoot % table footer on previous pages
+		
+		\endlastfoot % table footer on last page
+		
+		\emph{\textbf{Draw Water}}
+		& Draw water over the terrain, the default height is 5.0 (not alterable).
+		\\ \hline
+		
+		\emph{\textbf{Draw Normals}}
+		& Draw normals for the terrain, the default color is white (not alterable).
+		\\ \hline
+		
+		\emph{\textbf{Line Mode}}
+		& Draw the terrain in line mode (just the edges of the triangles), to see the effects of LOD.
+		\\ \hline
+				
+		\caption{Terrain Parameters}
+		\label{tab:terrain_params}		
 	\end{longtable}
 \end{center}

@@ -529,7 +529,7 @@ Figure~\ref{fig:chunk_pipeline} illustrates this pipeline.
     \label{fig:chunk_pipeline}
 \end{figure}
 
-The \texttt{EndlessTerrain} class only draws a chunk once its data is ready. When a chunk is needed, it initializes a \texttt{HeightMapWrapper} instance, passing in the chunk center. This wrapper then launches a new thread to request height and normal data from the \texttt{ChunkDataGenerator} (which is just a simple function in the code). Once the data is computed, it is returned via a callback function, completing the pipeline.
+The \texttt{EndlessTerrain} class only draws a chunk once its data is ready. When a chunk is needed, it initializes a \texttt{HeightMapWrapper} instance, passing in the chunk center. This wrapper then launches a new thread to request height and normal data from the \texttt{ChunkDataGenerator} (which is just a simple function in the code). Once the data is computed, it is returned via a callback function, completing the pipeline. I used Barak Shoshany's thread pool library \cite{Shoshany2024} for managing the threads.
 \\
 \textbf{\large IMPORTANT:}\\
 It is crucial to note that OpenGL operates strictly on a single thread—all OpenGL commands must be issued from the same thread that initialized the OpenGL context. Because of this, the \texttt{HeightMapWrapper} class handles all computation on the CPU first. Once the data is available (from the background thread), it schedules OpenGL commands to upload the data to the GPU as a texture, all on the main thread.
@@ -718,7 +718,7 @@ In the following sections when I say Worley noise, I mean Inverted Worley Noise 
 As we will see in the following sections, Inverted Worley noise is used for generating 3D density textures which must be tileable. This means for a pixel on the edge we must take into consideration the cell that is on the other edge (imagine wrapping the grid around like a torus) and the anchor point it contains. My approach for this was to use what I called a deterministic random function which always produces the same value for the same input. The code snippet below shows how it works:
 \lstset{caption={Deterministic Random Function}, label=src:det_random}
 \begin{lstlisting}[language=Python]
-//returns anchor points for grid cell at position pos
+#returns anchor points for grid cell at position pos
 def det_random(pos : tuple):
 	random.seed(hash(pos))
 	return [random.random() for i in range(len(pos))]
@@ -1664,3 +1664,5 @@ Other improvements could include using blue noise during raymarching to reduce b
 \subsubsection{Shadows} Shadows are an integral part of any realistic scene involving lights. However, they come at a performance cost, and because of that I did not experiment with them as part of this thesis. The realism of the current environment could be enhanced a lot by accurately modeling the shadows of the clouds on the terrain.
 
 \subsubsection{More Accurate Aircraft Dynamics} As mentioned previously, accurate modeling of an aircraft requires correctly simulating all the forces acting on it. Adding this feature to the game could open up possibilities of extending it into a combat game or a more realistic flight simulator.
+
+\subsubsection{Water} The methods for drawing water with accurate reflection and refraction of the terrain were not described in this thesis because the implementation is complex and it was not the main focus. The implementation was mainly inspired by ThinMatrix's tutorial \cite{thin_matrix}. One thing to note is that the reflection part of the water currently does not include the clouds; adding this would require additional raymarching and would help make the scene look more realistic.
